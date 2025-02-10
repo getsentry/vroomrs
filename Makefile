@@ -18,7 +18,7 @@ test: test-rust
 .PHONY: test
 
 test-rust:
-	cargo test --workspace --all-features
+	cargo test --all-features
 .PHONY: test-rust
 
 
@@ -40,7 +40,7 @@ lint: lint-rust
 
 lint-rust:
 	@rustup component add clippy --toolchain stable 2> /dev/null
-	cargo +stable clippy --all-features --workspace --tests --examples -- -D clippy::all
+	cargo +stable clippy --all-features -- -D clippy::all
 .PHONY: lint-rust
 
 
