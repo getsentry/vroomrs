@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::clientsdk;
 use crate::debugmeta;
@@ -16,11 +16,11 @@ pub struct SampleChunk {
     pub debug_meta: debugmeta::DebugMeta,
 
     pub client_sdk: Option<clientsdk::ClientSDK>,
-    
+
     pub environment: Option<String>,
 
     pub platform: platform::Platform,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
 
@@ -31,9 +31,9 @@ pub struct SampleChunk {
     pub organization_id: u64,
 
     pub project_id: u64,
-    
+
     pub received: f64,
-    
+
     pub retention_days: i32,
 
     // `measurements` contains CPU/memory measurements we do during the capture of the chunk.
@@ -67,13 +67,11 @@ pub struct Sample {
     pub timestamp: f64,
 }
 
-
 #[cfg(test)]
 mod tests {
     use serde_path_to_error::Error;
 
     use super::SampleChunk;
-
 
     #[test]
     fn test_sample_format() {

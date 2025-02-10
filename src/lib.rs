@@ -1,11 +1,11 @@
 use pyo3::prelude::*;
 
-mod chunk; 
-mod frame;
+mod chunk;
 mod clientsdk;
-mod platform;
 mod debugmeta;
+mod frame;
 mod measurements;
+mod platform;
 
 /// Formats the sum of two numbers as string.
 #[pyfunction]
