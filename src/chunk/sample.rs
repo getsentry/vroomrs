@@ -74,7 +74,7 @@ mod tests {
     use super::SampleChunk;
 
     #[test]
-    fn test_sample_format() {
+    fn test_sample_format_v2_cocoa() {
         let payload = include_bytes!("../../tests/fixtures/sample/v2/valid_cocoa.json");
         let d = &mut serde_json::Deserializer::from_slice(payload);
         let r: Result<SampleChunk, Error<_>> = serde_path_to_error::deserialize(d);

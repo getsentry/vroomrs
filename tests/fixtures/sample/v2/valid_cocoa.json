@@ -68,5 +68,14 @@
           "image_vmaddr": "0x0000000100000000"
         }
       ]
+    },
+    "measurements": {
+      "cpu": {
+        "unit": "hz",
+        "values": [
+          {"timestamp": 1234.123, "value": 66},
+          {"timestamp": 1235.123, "value": 72}
+        ]
+      }
     }
   }
