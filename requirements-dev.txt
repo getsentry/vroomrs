@@ -1,1 +1,2 @@
 maturin==1.8.1
+pre_commit==4.1.0
