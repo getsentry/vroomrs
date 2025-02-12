@@ -6,6 +6,7 @@ mod debugmeta;
 mod frame;
 mod measurements;
 mod platform;
+mod profile;
 
 /// Formats the sum of two numbers as string.
 #[pyfunction]
