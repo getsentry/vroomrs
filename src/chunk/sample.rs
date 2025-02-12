@@ -80,4 +80,12 @@ mod tests {
         let r: Result<SampleChunk, Error<_>> = serde_path_to_error::deserialize(d);
         assert!(r.is_ok(), "{:#?}", r)
     }
+
+    #[test]
+    fn test_sample_format_v2_python() {
+        let payload = include_bytes!("../../tests/fixtures/sample/v2/valid_python.json");
+        let d = &mut serde_json::Deserializer::from_slice(payload);
+        let r: Result<SampleChunk, Error<_>> = serde_path_to_error::deserialize(d);
+        assert!(r.is_ok(), "{:#?}", r)
+    }
 }
