@@ -54,7 +54,7 @@
             {
                 "class_name": "sun.util.calendar.CalendarUtils",
                 "data": {},
-                "id": 1205,
+                "id": 0,
                 "name": "isGregorianLeapYear",
                 "signature": "(int): boolean",
                 "source_file": "CalendarUtils.java",

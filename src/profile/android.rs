@@ -12,6 +12,12 @@ pub struct AndroidThread {
 pub struct AndroidMethod {
     pub class_name: String,
     pub data: Data,
+    // method_id is not optional, but in our Vroom service,
+    // the field was defined with the json tag `json:"id,omitempty"`
+    // which means we (wrongly) skip the serialization of such
+    // field if it's 0. By using a default value, we can safely deserialize
+    // profiles that were stored previously through the vroom service.
+    #[serde(default)]
     pub id: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inline_frames: Option<Vec<AndroidMethod>>,
@@ -79,6 +85,12 @@ pub enum Clock {
 pub struct AndroidEvent {
     pub action: Option<String>,
     pub thread_id: u64,
+    // method_id is not optional, but in our Vroom service,
+    // the field was defined with the json tag `json:"id,omitempty"`
+    // which means we (wrongly) skip the serialization of such
+    // field if it's 0. By using a default value, we can safely deserialize
+    // profiles that were stored previously through the vroom service.
+    #[serde(default)]
     pub method_id: u64,
     pub time: EventTime,
 }
