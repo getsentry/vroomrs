@@ -1,0 +1,109 @@
+{
+    "chunk_id": "7fcbc6ebc1944f44933e373aabe07806",
+    "profiler_id": "a2880c269f8146248c9dd5623d17aa74",
+    "debug_meta": {
+        "images": [
+            {
+                "type": "proguard",
+                "uuid": "60a5fd2b-f701-4aa7-acf6-f5e6998a046a"
+            }
+        ]
+    },
+    "client_sdk": {
+        "name": "sentry.java.android",
+        "version": "8.0.0-beta.3"
+    },
+    "duration_ns": 10105087000,
+    "environment": "debug",
+    "platform": "android",
+    "release": "io.sentry.samples.android@8.0.0-beta.3+2",
+    "timestamp": 1737465052.423,
+    "profile": {
+        "clock": "Dual",
+        "events": [
+            {
+                "action": "Enter",
+                "thread_id": 6689,
+                "method_id": 0,
+                "time": {
+                    "global": {},
+                    "Monotonic": {
+                        "wall": {
+                            "nanos": 195914000
+                        },
+                        "cpu": {}
+                    }
+                }
+            },
+            {
+                "action": "Exit",
+                "thread_id": 6689,
+                "method_id": 0,
+                "time": {
+                    "global": {},
+                    "Monotonic": {
+                        "wall": {
+                            "nanos": 195915874
+                        },
+                        "cpu": {}
+                    }
+                }
+            }
+        ],
+        "methods": [
+            {
+                "class_name": "sun.util.calendar.CalendarUtils",
+                "data": {},
+                "id": 0,
+                "name": "isGregorianLeapYear",
+                "signature": "(int): boolean",
+                "source_file": "CalendarUtils.java",
+                "in_app": null,
+                "platform": "android"
+            }
+        ],
+        "start_time": 2119367844000,
+        "threads": [
+            {
+                "id": 6689,
+                "name": "main"
+            }
+        ]
+    },
+    "measurements": {
+        "memory_native_footprint": {
+            "unit": "byte",
+            "values": [
+                {
+                    "timestamp": 1737465052.623,
+                    "value": 13450656.0
+                },
+                {
+                    "timestamp": 1737465052.849,
+                    "value": 13499648.0
+                }
+            ]
+        },
+        "screen_frame_rates": {
+            "unit": "hertz",
+            "values": []
+        },
+        "cpu_usage": {
+            "unit": "percent",
+            "values": [
+                {
+                    "timestamp": 1737465052.623,
+                    "value": 0.0
+                },
+                {
+                    "timestamp": 1737465052.849,
+                    "value": 4.429940504215651
+                }
+            ]
+        }
+    },
+    "organization_id": 1,
+    "project_id": 5,
+    "received": 1737465065,
+    "retention_days": 90
+}
