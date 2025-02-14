@@ -5,6 +5,7 @@ mod clientsdk;
 mod debugmeta;
 mod frame;
 mod measurements;
+mod packageutil;
 mod platform;
 mod profile;
 
