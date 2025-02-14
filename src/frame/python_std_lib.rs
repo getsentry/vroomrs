@@ -254,7 +254,3 @@ pub(crate) static PYTHON_STDLIB: Lazy<HashSet<&'static str>> = Lazy::new(|| {
         "zoneinfo",
     ])
 });
-
-pub fn is_stdlib_module(module_name: &str) -> bool {
-    PYTHON_STDLIB.contains(module_name)
-}
