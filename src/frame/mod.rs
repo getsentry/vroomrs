@@ -1,3 +1,5 @@
+mod python_std_lib;
+
 use std::collections::HashSet;
 
 use once_cell::sync::Lazy;
@@ -6,8 +8,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::packageutil;
 use crate::platform;
-
-mod python_std_lib;
 
 static WINDOWS_PATH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^([a-z]:\\|\\\\)").unwrap());
 static PACKAGE_EXTENSION_REGEX: Lazy<Regex> =
@@ -151,9 +151,9 @@ impl Frame {
             return false;
         }
 
-        self.package.as_ref().map_or(false, |package| {
-            packageutil::is_cocoa_application_package(package)
-        })
+        self.package
+            .as_ref()
+            .is_some_and(|package| packageutil::is_cocoa_application_package(package))
     }
 
     fn is_rust_application_frame(&self) -> bool {
@@ -227,6 +227,7 @@ impl Frame {
         self.in_app = Some(is_application);
     }
 
+    #[allow(dead_code)]
     fn is_in_app(&self) -> bool {
         self.in_app.unwrap_or(false)
     }

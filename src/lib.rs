@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 mod chunk;
 mod clientsdk;
 mod debugmeta;
-mod frame;
+pub mod frame;
 mod measurements;
 mod packageutil;
 mod platform;
