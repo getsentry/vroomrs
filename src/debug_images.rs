@@ -21,14 +21,3 @@ pub struct Image {
     pub r#type: Option<String>,
     pub uuid: Option<String>,
 }
-
-#[derive(Default, Serialize, Deserialize, Debug)]
-pub struct DebugMeta {
-    pub images: Vec<Image>,
-}
-
-impl DebugMeta {
-    pub fn is_empty(&self) -> bool {
-        self.images.is_empty()
-    }
-}

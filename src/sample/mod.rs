@@ -1,3 +1,5 @@
+mod v2;
+
 mod python_std_lib;
 
 use std::collections::HashSet;
@@ -6,8 +8,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::packageutil;
-use crate::platform;
+use crate::types::Platform;
 
 static WINDOWS_PATH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^([a-z]:\\|\\\\)").unwrap());
 static PACKAGE_EXTENSION_REGEX: Lazy<Regex> =
@@ -55,7 +56,18 @@ pub struct Frame {
 
     pub symbol: Option<String>,
 
-    pub platform: Option<platform::Platform>,
+    pub platform: Option<Platform>,
+}
+
+/// Determines whether the image represents that of the application
+/// binary (or a binary embedded in the application binary) by checking its package path.
+pub fn is_cocoa_application_package(p: &str) -> bool {
+    // These are the path patterns that iOS uses for applications,
+    // system libraries are stored elsewhere.
+    p.starts_with("/private/var/containers")
+        || p.starts_with("/var/containers")
+        || p.contains("/Developer/Xcode/DerivedData")
+        || p.contains("/data/Containers/Bundle/Application")
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -153,7 +165,7 @@ impl Frame {
 
         self.package
             .as_ref()
-            .is_some_and(|package| packageutil::is_cocoa_application_package(package))
+            .is_some_and(|package| is_cocoa_application_package(package))
     }
 
     fn is_rust_application_frame(&self) -> bool {
@@ -201,7 +213,7 @@ impl Frame {
             .is_none_or(|path| !path.contains("/vendor/"))
     }
 
-    fn set_in_app(&mut self, p: platform::Platform) {
+    fn set_in_app(&mut self, p: Platform) {
         // for react-native the in_app field seems to be messed up most of the times,
         // with system libraries and other frames that are clearly system frames
         // labelled as `in_app`.
@@ -215,12 +227,12 @@ impl Frame {
         }
 
         let is_application = match self.platform.unwrap() {
-            platform::Platform::Node => self.is_node_application_frame(),
-            platform::Platform::JavaScript => self.is_javascript_application_frame(),
-            platform::Platform::Cocoa => self.is_cocoa_application_frame(),
-            platform::Platform::Rust => self.is_rust_application_frame(),
-            platform::Platform::Python => self.is_python_application_frame(),
-            platform::Platform::Php => self.is_php_application_frame(),
+            Platform::Node => self.is_node_application_frame(),
+            Platform::JavaScript => self.is_javascript_application_frame(),
+            Platform::Cocoa => self.is_cocoa_application_frame(),
+            Platform::Rust => self.is_rust_application_frame(),
+            Platform::Python => self.is_python_application_frame(),
+            Platform::Php => self.is_php_application_frame(),
             _ => false,
         };
 
@@ -232,7 +244,7 @@ impl Frame {
         self.in_app.unwrap_or(false)
     }
 
-    fn set_platform(&mut self, p: platform::Platform) {
+    fn set_platform(&mut self, p: Platform) {
         if self.platform.is_none() {
             self.platform = Some(p);
         }
@@ -248,7 +260,7 @@ impl Frame {
         }
     }
 
-    pub fn normalize(&mut self, p: platform::Platform) {
+    pub fn normalize(&mut self, p: Platform) {
         // Call order is important since set_in_app uses status and platform
         self.set_status();
         self.set_platform(p);

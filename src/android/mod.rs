@@ -1,6 +1,8 @@
+mod chunk;
+
 use serde::{Deserialize, Serialize};
 
-use crate::platform;
+use crate::types::Platform;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AndroidThread {
@@ -29,7 +31,7 @@ pub struct AndroidMethod {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub in_app: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub platform: Option<platform::Platform>,
+    pub platform: Option<Platform>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

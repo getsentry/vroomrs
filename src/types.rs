@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::debug_images::Image;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ChunkMeasurement {
     unit: MeasurementUnit,
@@ -25,4 +27,34 @@ pub struct ChunkMeasurementValue {
     timestamp: f64,
 
     value: f64,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum Platform {
+    Android,
+    Cocoa,
+    Java,
+    JavaScript,
+    Node,
+    Php,
+    Python,
+    Rust,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ClientSDK {
+    pub name: String,
+    pub version: String,
+}
+
+#[derive(Default, Serialize, Deserialize, Debug)]
+pub struct DebugMeta {
+    pub images: Vec<Image>,
+}
+
+impl DebugMeta {
+    pub fn is_empty(&self) -> bool {
+        self.images.is_empty()
+    }
 }
