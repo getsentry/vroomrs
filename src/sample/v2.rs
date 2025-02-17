@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::clientsdk;
-use crate::debugmeta;
-use crate::frame;
-use crate::platform;
+use super::Frame;
+use crate::types::{ClientSDK, DebugMeta, Platform};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SampleChunk {
@@ -12,14 +10,14 @@ pub struct SampleChunk {
 
     pub profiler_id: String,
 
-    #[serde(default, skip_serializing_if = "debugmeta::DebugMeta::is_empty")]
-    pub debug_meta: debugmeta::DebugMeta,
+    #[serde(default, skip_serializing_if = "DebugMeta::is_empty")]
+    pub debug_meta: DebugMeta,
 
-    pub client_sdk: Option<clientsdk::ClientSDK>,
+    pub client_sdk: Option<ClientSDK>,
 
     pub environment: Option<String>,
 
-    pub platform: platform::Platform,
+    pub platform: Platform,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
@@ -51,7 +49,7 @@ pub struct ThreadMetadata {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SampleData {
-    pub frames: Vec<frame::Frame>,
+    pub frames: Vec<Frame>,
     pub samples: Vec<Sample>,
     pub stacks: Vec<Vec<i32>>,
     pub thread_metadata: std::collections::HashMap<String, ThreadMetadata>,

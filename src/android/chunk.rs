@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::clientsdk;
-use crate::debugmeta;
-use crate::platform;
-use crate::profile::android;
+use crate::types::{ClientSDK, DebugMeta, Platform};
+
+use super::Android;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AndroidChunk {
@@ -11,19 +10,19 @@ pub struct AndroidChunk {
     pub build_id: Option<String>,
     pub chunk_id: String,
     pub profiler_id: String,
-    #[serde(default, skip_serializing_if = "debugmeta::DebugMeta::is_empty")]
-    pub debug_meta: debugmeta::DebugMeta,
+    #[serde(default, skip_serializing_if = "DebugMeta::is_empty")]
+    pub debug_meta: DebugMeta,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub client_sdk: Option<clientsdk::ClientSDK>,
+    pub client_sdk: Option<ClientSDK>,
     pub duration_ns: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub environment: Option<String>,
-    pub platform: platform::Platform,
+    pub platform: Platform,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
     pub timestamp: f64,
 
-    pub profile: android::Android,
+    pub profile: Android,
     pub measurements: Option<serde_json::Value>,
 
     pub organization_id: u64,

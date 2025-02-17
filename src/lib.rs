@@ -1,12 +1,9 @@
 use pyo3::prelude::*;
 
-mod chunk;
-mod clientsdk;
-mod debugmeta;
-mod frame;
-mod measurements;
-mod platform;
-mod profile;
+mod android;
+mod debug_images;
+pub mod sample;
+mod types;
 
 /// Formats the sum of two numbers as string.
 #[pyfunction]
