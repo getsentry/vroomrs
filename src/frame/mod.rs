@@ -16,7 +16,7 @@ static JS_SYSTEM_PACKAGE_REGEX: Lazy<Regex> =
 static COCOA_SYSTEM_PACKAGE: Lazy<HashSet<&'static str>> =
     Lazy::new(|| HashSet::from(["Sentry", "hermes"]));
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Frame {
     #[serde(rename = "colno")]
     pub column: Option<u32>,
@@ -68,7 +68,7 @@ pub fn is_cocoa_application_package(p: &str) -> bool {
         || p.contains("/data/Containers/Bundle/Application")
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Data {
     #[serde(rename = "deobfuscation_status")]
     pub deobfuscation_status: Option<String>,
@@ -267,7 +267,7 @@ impl Frame {
 
     /// Returns the module name if present, otherwise returns the trimmed package name.
     /// If neither is present, returns an empty string.
-    fn module_or_package(&self) -> String {
+    pub fn module_or_package(&self) -> String {
         if let Some(module) = &self.module {
             if !module.is_empty() {
                 return module.clone();

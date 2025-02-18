@@ -3,6 +3,7 @@ use pyo3::prelude::*;
 mod android;
 mod debug_images;
 pub mod frame;
+pub mod nodetree;
 mod sample;
 mod types;
 
