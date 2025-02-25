@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::Frame;
+use crate::frame::Frame;
 use crate::types::{ClientSDK, DebugMeta, Platform};
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -2,7 +2,9 @@ use pyo3::prelude::*;
 
 mod android;
 mod debug_images;
-pub mod sample;
+pub mod frame;
+pub mod nodetree;
+mod sample;
 mod types;
 
 /// Formats the sum of two numbers as string.
