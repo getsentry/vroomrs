@@ -29,7 +29,7 @@ pub struct ChunkMeasurementValue {
     value: f64,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
     Android,
@@ -40,6 +40,8 @@ pub enum Platform {
     Php,
     Python,
     Rust,
+    #[default]
+    None,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

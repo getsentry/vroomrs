@@ -3,7 +3,7 @@ use std::hash::Hasher;
 use crate::frame::Frame;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
 pub struct Node {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<Node>,

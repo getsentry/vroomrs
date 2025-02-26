@@ -4,7 +4,7 @@ mod android;
 mod debug_images;
 pub mod frame;
 pub mod nodetree;
-mod sample;
+pub mod sample;
 mod types;
 
 /// Formats the sum of two numbers as string.

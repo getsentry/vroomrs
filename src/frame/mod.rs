@@ -16,7 +16,7 @@ static JS_SYSTEM_PACKAGE_REGEX: Lazy<Regex> =
 static COCOA_SYSTEM_PACKAGE: Lazy<HashSet<&'static str>> =
     Lazy::new(|| HashSet::from(["Sentry", "hermes"]));
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct Frame {
     #[serde(rename = "colno")]
     pub column: Option<u32>,
@@ -68,7 +68,7 @@ pub fn is_cocoa_application_package(p: &str) -> bool {
         || p.contains("/data/Containers/Bundle/Application")
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Data {
     #[serde(rename = "deobfuscation_status")]
     pub deobfuscation_status: Option<String>,
