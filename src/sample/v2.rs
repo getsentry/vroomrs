@@ -72,21 +72,22 @@ pub struct Sample {
 
 impl SampleChunk {
     pub fn call_trees(
-        &self,
+        &mut self,
         active_thread_id: Option<&str>,
-    ) -> Result<HashMap<String, Vec<Node>>, SampleError> {
+    ) -> Result<HashMap<&str, Vec<Node>>, SampleError> {
         // Sort samples by timestamp
-        let mut sorted_samples = self.profile.samples.clone();
-        sorted_samples.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
+        self.profile
+            .samples
+            .sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
 
-        let mut trees_by_thread_id: HashMap<String, Vec<Node>> = HashMap::new();
-        let mut samples_by_thread_id: HashMap<&str, Vec<Sample>> = HashMap::new();
+        let mut trees_by_thread_id: HashMap<&str, Vec<Node>> = HashMap::new();
+        let mut samples_by_thread_id: HashMap<&str, Vec<&Sample>> = HashMap::new();
 
-        for sample in &sorted_samples {
+        for sample in &self.profile.samples {
             samples_by_thread_id
                 .entry(sample.thread_id.as_ref())
                 .or_default()
-                .push(sample.clone());
+                .push(sample);
         }
 
         let mut hasher = Fnv64::default();
@@ -135,7 +136,7 @@ impl SampleChunk {
 
                     match current {
                         None => {
-                            let trees = trees_by_thread_id.entry(thread_id.into()).or_default();
+                            let trees = trees_by_thread_id.entry(thread_id).or_default();
 
                             if let Some(last_tree) = trees.last_mut() {
                                 if last_tree.fingerprint == fingerprint
@@ -217,13 +218,13 @@ mod tests {
     fn test_call_trees() {
         use crate::nodetree::Node;
         use std::collections::HashMap;
-        struct TestStruct {
+        struct TestStruct<'a> {
             name: String,
             chunk: SampleChunk,
-            want: HashMap<String, Vec<Node>>,
+            want: HashMap<&'a str, Vec<Node>>,
         }
 
-        let test_cases = [
+        let mut test_cases = [
             TestStruct {
                 name: "call tree with multiple samples per frame".to_string(),
                 chunk: SampleChunk {
@@ -265,7 +266,7 @@ mod tests {
                     ..Default::default()
                 }, //end chucnk
                 want: [(
-                    "1".to_string(),
+                    "1",
                     vec![Node {
                         duration_ns: 40000000,
                         end_ns: 50000000,
@@ -351,7 +352,7 @@ mod tests {
                     ..Default::default()
                 }, //end chucnk
                 want: [(
-                    "1".to_string(),
+                    "1",
                     vec![Node {
                         duration_ns: 30000000,
                         end_ns: 40000000,
@@ -426,7 +427,7 @@ mod tests {
                     ..Default::default()
                 }, //end chucnk
                 want: [(
-                    "1".to_string(),
+                    "1",
                     vec![
                         Node {
                             duration_ns: 10000000,
@@ -464,7 +465,7 @@ mod tests {
             }, //end third test case
         ];
 
-        for test_case in test_cases {
+        for test_case in test_cases.as_mut() {
             let call_trees = test_case.chunk.call_trees(None).unwrap();
             assert_eq!(
                 call_trees, test_case.want,
