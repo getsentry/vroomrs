@@ -268,22 +268,22 @@ mod tests {
                 want: [(
                     "1",
                     vec![Node {
-                        duration_ns: 40000000,
-                        end_ns: 50000000,
+                        duration_ns: 40_000_000,
+                        end_ns: 50_000_000,
                         fingerprint: 6903369137866438128,
                         is_application: true,
                         name: "function0".to_string(),
                         sample_count: 2,
-                        start_ns: 10000000,
+                        start_ns: 10_000_000,
                         frame: Frame {
                             function: Some("function0".to_string()),
                             ..Default::default()
                         },
                         children: vec![
                             Node {
-                                duration_ns: 40000000,
-                                end_ns: 50000000,
-                                start_ns: 10000000,
+                                duration_ns: 40_000_000,
+                                end_ns: 50_000_000,
+                                start_ns: 10_000_000,
                                 fingerprint: 17095743776245828002,
                                 is_application: true,
                                 name: "function1".to_string(),
@@ -293,13 +293,13 @@ mod tests {
                                     ..Default::default()
                                 },
                                 children: vec![Node {
-                                    duration_ns: 10000000,
-                                    end_ns: 50000000,
+                                    duration_ns: 10_000_000,
+                                    end_ns: 50_000_000,
                                     fingerprint: 16529420490907277225,
                                     is_application: true,
                                     name: "function2".to_string(),
                                     sample_count: 1,
-                                    start_ns: 40000000,
+                                    start_ns: 40_000_000,
                                     frame: Frame {
                                         function: Some("function2".to_string()),
                                         ..Default::default()
@@ -354,25 +354,25 @@ mod tests {
                 want: [(
                     "1",
                     vec![Node {
-                        duration_ns: 30000000,
-                        end_ns: 40000000,
+                        duration_ns: 30_000_000,
+                        end_ns: 40_000_000,
                         fingerprint: 6903369137866438128,
                         is_application: true,
                         name: "function0".to_string(),
                         sample_count: 1,
-                        start_ns: 10000000,
+                        start_ns: 10_000_000,
                         frame: Frame {
                             function: Some("function0".to_string()),
                             ..Default::default()
                         },
                         children: vec![Node {
-                            duration_ns: 30000000,
-                            end_ns: 40000000,
+                            duration_ns: 30_000_000,
+                            end_ns: 40_000_000,
                             fingerprint: 17095743776245828002,
                             is_application: true,
                             name: "function1".to_string(),
                             sample_count: 1,
-                            start_ns: 10000000,
+                            start_ns: 10_000_000,
                             frame: Frame {
                                 function: Some("function1".to_string()),
                                 ..Default::default()
@@ -430,13 +430,13 @@ mod tests {
                     "1",
                     vec![
                         Node {
-                            duration_ns: 10000000,
-                            end_ns: 20000000,
+                            duration_ns: 10_000_000,
+                            end_ns: 20_000_000,
                             fingerprint: 6903369137866438128,
                             is_application: true,
                             name: "function0".to_string(),
                             sample_count: 1,
-                            start_ns: 10000000,
+                            start_ns: 10_000_000,
                             frame: Frame {
                                 function: Some("function0".to_string()),
                                 ..Default::default()
@@ -444,13 +444,13 @@ mod tests {
                             ..Default::default()
                         },
                         Node {
-                            duration_ns: 10000000,
-                            end_ns: 30000000,
+                            duration_ns: 10_000_000,
+                            end_ns: 30_000_000,
                             fingerprint: 6903370237378066339,
                             is_application: true,
                             name: "function1".to_string(),
                             sample_count: 1,
-                            start_ns: 20000000,
+                            start_ns: 20_000_000,
                             frame: Frame {
                                 function: Some("function1".to_string()),
                                 ..Default::default()
