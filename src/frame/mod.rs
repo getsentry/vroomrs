@@ -16,7 +16,7 @@ static JS_SYSTEM_PACKAGE_REGEX: Lazy<Regex> =
 static COCOA_SYSTEM_PACKAGE: Lazy<HashSet<&'static str>> =
     Lazy::new(|| HashSet::from(["Sentry", "hermes"]));
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct Frame {
     #[serde(rename = "colno")]
     pub column: Option<u32>,
@@ -68,7 +68,7 @@ pub fn is_cocoa_application_package(p: &str) -> bool {
         || p.contains("/data/Containers/Bundle/Application")
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct Data {
     #[serde(rename = "deobfuscation_status")]
     pub deobfuscation_status: Option<String>,
@@ -282,10 +282,36 @@ impl Frame {
 
         String::new()
     }
+
+    /// Writes frame data to the provided hash implementation.
+    /// This is used to create a unique identifier for the frame.
+    pub fn write_to_hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        let s = if let Some(module) = &self.module {
+            module
+        } else if let Some(package) = &self.package {
+            &trim_package(package)
+        } else if let Some(file) = &self.file {
+            file
+        } else {
+            "-"
+        };
+
+        h.write(s.as_bytes());
+
+        let s = self.function.as_deref().unwrap_or("-");
+        h.write(s.as_bytes());
+
+        // Important for native platforms to distinguish unknown frames
+        if let Some(addr) = &self.instruction_addr {
+            h.write(addr.as_bytes());
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::hash::Hasher;
+
     use super::Frame;
 
     #[test]
@@ -698,6 +724,85 @@ mod tests {
                 result, test_case.expected,
                 "expected: {} - got: {}",
                 test_case.expected, result
+            );
+        }
+    }
+
+    #[test]
+    fn test_write_to_hash() {
+        use fnv_rs::Fnv64;
+
+        struct TestStruct<'a> {
+            name: String,
+            bytes: &'a [u8],
+            frame: Frame,
+        }
+
+        let test_cases = [
+            TestStruct {
+                name: "unknown frame".to_string(),
+                bytes: "--".as_bytes(),
+                frame: Frame::default(),
+            },
+            TestStruct {
+                name: "prefers function module over package".to_string(),
+                bytes: "foo-".as_bytes(),
+                frame: Frame {
+                    module: Some("foo".to_string()),
+                    package: Some("/bar/bar".to_string()),
+                    file: Some("baz".to_string()),
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "prefers package over file".to_string(),
+                bytes: "bar-".as_bytes(),
+                frame: Frame {
+                    package: Some("/bar/bar".to_string()),
+                    file: Some("baz".to_string()),
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "prefers file over nothing".to_string(),
+                bytes: "baz-".as_bytes(),
+                frame: Frame {
+                    file: Some("baz".to_string()),
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "uses function name".to_string(),
+                bytes: "-qux".as_bytes(),
+                frame: Frame {
+                    function: Some("qux".to_string()),
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "native unknown frame".to_string(),
+                bytes: "--0x123456789".as_bytes(),
+                frame: Frame {
+                    instruction_addr: Some("0x123456789".to_string()),
+                    ..Default::default()
+                },
+            },
+        ];
+
+        for test_case in test_cases {
+            let mut h1 = Fnv64::default();
+            h1.write(test_case.bytes);
+
+            let mut h2 = Fnv64::default();
+            test_case.frame.write_to_hash(&mut h2);
+
+            let s1 = h1.finish();
+            let s2 = h2.finish();
+
+            assert_eq!(
+                s1, s2,
+                "test: {}. \nexpected: {} - got: {}",
+                test_case.name, s1, s2
             );
         }
     }
