@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
 
-mod android;
+pub mod android;
 mod debug_images;
 pub mod frame;
 pub mod nodetree;
