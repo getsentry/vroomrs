@@ -1,8 +1,12 @@
 mod chunk;
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
-use crate::types::Platform;
+use crate::{nodetree::Node, types::Platform};
+
+const MAIN_THREAD: &str = "main";
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct AndroidThread {
@@ -197,6 +201,59 @@ impl Android {
                     }
                 }
             }
+        }
+    }
+
+    pub fn timestamp_getter(&self) -> Box<dyn Fn(&EventTime) -> u64 + '_> {
+        match self.clock {
+            Clock::Global => Box::new(|t: &EventTime| {
+                let secs: u64 = if let Some(global) = &t.global {
+                    global.secs.unwrap_or_default()
+                } else {
+                    0
+                };
+                let nanos: u64 = if let Some(global) = &t.global {
+                    global.nanos.unwrap_or_default()
+                } else {
+                    0
+                };
+
+                secs * 1_000_000_000 + nanos - self.start_time
+                // let nanos: u64 = t.global.unwrap_or(|| -> 0).nanos.unwrap_or_default();
+                // secs
+            }),
+            Clock::Cpu => Box::new(|t: &EventTime| {
+                if let Some(monotonic) = &t.monotonic {
+                    let secs = if let Some(cpu) = &monotonic.cpu {
+                        cpu.secs.unwrap_or_default()
+                    } else {
+                        0
+                    };
+                    let nanos = if let Some(cpu) = &monotonic.cpu {
+                        cpu.nanos.unwrap_or_default()
+                    } else {
+                        0
+                    };
+                    return secs * 1_000_000_000 + nanos;
+                }
+                0
+            }),
+            _ => Box::new(|t: &EventTime| {
+                if let Some(monotonic) = &t.monotonic {
+                    let secs = if let Some(wall) = &monotonic.wall {
+                        wall.secs.unwrap_or_default()
+                    } else {
+                        0
+                    };
+                    let nanos = if let Some(wall) = &monotonic.wall {
+                        wall.nanos.unwrap_or_default()
+                    } else {
+                        0
+                    };
+                    return secs * 1_000_000_000 + nanos;
+                }
+                0
+            }),
         }
     }
 }
@@ -570,6 +627,78 @@ mod tests {
                 "{} test failed.",
                 test_case.name
             )
+        }
+    }
+
+    #[test]
+    fn test_timestamp_getter() {
+        struct TestStruct {
+            name: String,
+            trace: Android,
+            event: EventTime,
+            want: u64,
+        }
+
+        let test_cases = [
+            TestStruct {
+                name: "global clock".to_string(),
+                trace: Android {
+                    clock: Clock::Global,
+                    start_time: 500,
+                    ..Default::default()
+                },
+                event: EventTime {
+                    global: Some(Duration {
+                        secs: Some(2),
+                        nanos: Some(1000),
+                    }),
+                    ..Default::default()
+                },
+                want: 2_000_000_500,
+            }, // end test case
+            TestStruct {
+                name: "cpu clock".to_string(),
+                trace: Android {
+                    clock: Clock::Cpu,
+                    start_time: 0,
+                    ..Default::default()
+                },
+                event: EventTime {
+                    monotonic: Some(EventMonotonic {
+                        cpu: Some(Duration {
+                            secs: Some(1),
+                            nanos: Some(1000),
+                        }),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                want: 1_000_001_000,
+            }, // end test case
+            TestStruct {
+                name: "wall clock".to_string(),
+                trace: Android {
+                    clock: Clock::Wall,
+                    start_time: 0,
+                    ..Default::default()
+                },
+                event: EventTime {
+                    monotonic: Some(EventMonotonic {
+                        wall: Some(Duration {
+                            secs: Some(3),
+                            nanos: Some(400),
+                        }),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                want: 3_000_000_400,
+            }, // end test case
+        ];
+        for test_case in test_cases {
+            let build_timestamp = test_case.trace.timestamp_getter();
+            let timestamp = build_timestamp(&test_case.event);
+            assert_eq!(timestamp, test_case.want, "{} failed", test_case.name)
         }
     }
 }
