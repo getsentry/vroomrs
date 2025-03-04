@@ -6,6 +6,7 @@ use std::hash::Hasher;
 use super::SampleError;
 use crate::frame::Frame;
 use crate::nodetree::Node;
+use crate::types::CallTreeError;
 use crate::types::{ClientSDK, DebugMeta, Platform};
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -74,7 +75,7 @@ impl SampleChunk {
     pub fn call_trees(
         &mut self,
         active_thread_id: Option<&str>,
-    ) -> Result<HashMap<&str, Vec<Node>>, SampleError> {
+    ) -> Result<HashMap<&str, Vec<Node>>, CallTreeError> {
         // Sort samples by timestamp
         self.profile
             .samples
@@ -107,7 +108,7 @@ impl SampleChunk {
 
                 // Validate stack ID
                 if self.profile.stacks.len() <= (sample.stack_id as usize) {
-                    return Err(SampleError::InvalidStackId);
+                    return Err(CallTreeError::Sample(SampleError::InvalidStackId));
                 }
 
                 let stack = &self.profile.stacks[sample.stack_id as usize];
@@ -115,7 +116,7 @@ impl SampleChunk {
                 // Validate frame IDs
                 for &frame_id in stack.iter().rev() {
                     if self.profile.frames.len() <= (frame_id as usize) {
-                        return Err(SampleError::InvalidFrameId);
+                        return Err(CallTreeError::Sample(SampleError::InvalidFrameId));
                     }
                 }
 
