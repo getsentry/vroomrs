@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 use crate::debug_images::Image;
+use crate::sample::SampleError;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ChunkMeasurement {
@@ -58,5 +60,23 @@ pub struct DebugMeta {
 impl DebugMeta {
     pub fn is_empty(&self) -> bool {
         self.images.is_empty()
+    }
+}
+
+#[derive(Debug)]
+pub enum CallTreeError {
+    Sample(SampleError),
+    Android,
+}
+
+impl fmt::Display for CallTreeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CallTreeError::Sample(sample_error) => match sample_error {
+                SampleError::InvalidStackId => write!(f, "invalid stack id"),
+                SampleError::InvalidFrameId => write!(f, "invalid frame id"),
+            },
+            CallTreeError::Android => write!(f, "generic android call_tree error"),
+        }
     }
 }
