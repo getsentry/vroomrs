@@ -1,12 +1,10 @@
-use std::hash::Hasher;
+use std::{cell::RefCell, hash::Hasher, rc::Rc};
 
 use crate::frame::Frame;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Node {
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub children: Vec<Node>,
+    pub children: Vec<Rc<RefCell<Node>>>,
 
     pub duration_ns: u64,
 
@@ -14,31 +12,25 @@ pub struct Node {
 
     pub is_application: bool,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub line: Option<u32>,
 
     pub name: String,
 
     pub package: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
 
-    #[serde(skip)]
     pub end_ns: u64,
 
-    #[serde(skip)]
     pub frame: Frame,
 
-    #[serde(skip)]
     pub sample_count: u64,
 
-    #[serde(skip)]
     pub start_ns: u64,
 }
 
 impl Node {
-    pub fn from_frame(f: &Frame, start: u64, end: u64, fingerprint: u64) -> Node {
+    pub fn from_frame(f: &Frame, start: u64, end: u64, fingerprint: u64) -> Rc<RefCell<Node>> {
         let is_application = f.in_app.unwrap_or(true);
 
         let mut node = Node {
@@ -60,7 +52,7 @@ impl Node {
             node.duration_ns = node.end_ns - node.start_ns;
         }
 
-        node
+        Rc::new(RefCell::new(node))
     }
 
     pub fn update(&mut self, timestamp: u64) {

@@ -1,7 +1,9 @@
 use fnv_rs::Fnv64;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hasher;
+use std::rc::Rc;
 
 use super::SampleError;
 use crate::frame::Frame;
@@ -72,16 +74,17 @@ pub struct Sample {
 }
 
 impl SampleChunk {
+    #[allow(clippy::type_complexity)]
     pub fn call_trees(
         &mut self,
         active_thread_id: Option<&str>,
-    ) -> Result<HashMap<&str, Vec<Node>>, CallTreeError> {
+    ) -> Result<HashMap<&str, Vec<Rc<RefCell<Node>>>>, CallTreeError> {
         // Sort samples by timestamp
         self.profile
             .samples
             .sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
 
-        let mut trees_by_thread_id: HashMap<&str, Vec<Node>> = HashMap::new();
+        let mut trees_by_thread_id: HashMap<&str, Vec<Rc<RefCell<Node>>>> = HashMap::new();
         let mut samples_by_thread_id: HashMap<&str, Vec<&Sample>> = HashMap::new();
 
         for sample in &self.profile.samples {
@@ -125,7 +128,7 @@ impl SampleChunk {
                 let next_timestamp = (&samples[sample_index + 1].timestamp * 1e9) as u64;
                 let sample_timestamp = (sample.timestamp * 1e9) as u64;
 
-                let mut current: Option<&mut Node> = None;
+                let mut current: Option<Rc<RefCell<Node>>> = None;
 
                 // Process stack frames from bottom to top
                 for &frame_id in stack.iter().rev() {
@@ -139,12 +142,12 @@ impl SampleChunk {
                         None => {
                             let trees = trees_by_thread_id.entry(thread_id).or_default();
 
-                            if let Some(last_tree) = trees.last_mut() {
-                                if last_tree.fingerprint == fingerprint
-                                    && last_tree.end_ns == sample_timestamp
+                            if let Some(last_tree) = trees.last() {
+                                if last_tree.borrow().fingerprint == fingerprint
+                                    && last_tree.borrow().end_ns == sample_timestamp
                                 {
-                                    last_tree.update(next_timestamp);
-                                    current = Some(last_tree);
+                                    last_tree.borrow_mut().update(next_timestamp);
+                                    current = Some(Rc::clone(last_tree));
                                     continue;
                                 }
                             }
@@ -155,18 +158,18 @@ impl SampleChunk {
                                 next_timestamp,
                                 fingerprint,
                             );
-                            trees.push(new_node);
-                            current = trees.last_mut();
+                            trees.push(Rc::clone(&new_node));
+                            current = Some(new_node);
                         }
                         Some(node) => {
-                            let i = node.children.len();
-                            if !node.children.is_empty()
-                                && node.children[i - 1].fingerprint == fingerprint
-                                && node.children[i - 1].end_ns == sample_timestamp
+                            let i = node.borrow().children.len();
+                            if !node.borrow().children.is_empty()
+                                && node.borrow().children[i - 1].borrow().fingerprint == fingerprint
+                                && node.borrow().children[i - 1].borrow().end_ns == sample_timestamp
                             {
-                                let last_child = &mut node.children[i - 1];
-                                last_child.update(next_timestamp);
-                                current = Some(last_child);
+                                let last_child = &node.borrow().children[i - 1];
+                                last_child.borrow_mut().update(next_timestamp);
+                                current = Some(Rc::clone(last_child));
                                 continue;
                             } else {
                                 let new_node = Node::from_frame(
@@ -175,8 +178,8 @@ impl SampleChunk {
                                     next_timestamp,
                                     fingerprint,
                                 );
-                                node.children.push(new_node);
-                                current = node.children.last_mut();
+                                node.borrow_mut().children.push(Rc::clone(&new_node));
+                                current = Some(new_node);
                             }
                         } // end Some
                     } // end match
@@ -190,6 +193,8 @@ impl SampleChunk {
 
 #[cfg(test)]
 mod tests {
+    use std::{cell::RefCell, rc::Rc};
+
     use serde_path_to_error::Error;
 
     use crate::{
@@ -222,7 +227,7 @@ mod tests {
         struct TestStruct<'a> {
             name: String,
             chunk: SampleChunk,
-            want: HashMap<&'a str, Vec<Node>>,
+            want: HashMap<&'a str, Vec<Rc<RefCell<Node>>>>,
         }
 
         let mut test_cases = [
@@ -268,7 +273,7 @@ mod tests {
                 }, //end chucnk
                 want: [(
                     "1",
-                    vec![Node {
+                    vec![Rc::new(RefCell::new(Node {
                         duration_ns: 40_000_000,
                         end_ns: 50_000_000,
                         fingerprint: 6903369137866438128,
@@ -281,7 +286,7 @@ mod tests {
                             ..Default::default()
                         },
                         children: vec![
-                            Node {
+                            Rc::new(RefCell::new(Node {
                                 duration_ns: 40_000_000,
                                 end_ns: 50_000_000,
                                 start_ns: 10_000_000,
@@ -293,7 +298,7 @@ mod tests {
                                     function: Some("function1".to_string()),
                                     ..Default::default()
                                 },
-                                children: vec![Node {
+                                children: vec![Rc::new(RefCell::new(Node {
                                     duration_ns: 10_000_000,
                                     end_ns: 50_000_000,
                                     fingerprint: 16529420490907277225,
@@ -306,12 +311,12 @@ mod tests {
                                         ..Default::default()
                                     },
                                     ..Default::default()
-                                }],
+                                }))],
                                 ..Default::default()
-                            }, // TODO finish
+                            })), // TODO finish
                         ],
                         ..Default::default()
-                    }],
+                    }))],
                 )]
                 .iter()
                 .cloned()
@@ -354,7 +359,7 @@ mod tests {
                 }, //end chucnk
                 want: [(
                     "1",
-                    vec![Node {
+                    vec![Rc::new(RefCell::new(Node {
                         duration_ns: 30_000_000,
                         end_ns: 40_000_000,
                         fingerprint: 6903369137866438128,
@@ -366,7 +371,7 @@ mod tests {
                             function: Some("function0".to_string()),
                             ..Default::default()
                         },
-                        children: vec![Node {
+                        children: vec![Rc::new(RefCell::new(Node {
                             duration_ns: 30_000_000,
                             end_ns: 40_000_000,
                             fingerprint: 17095743776245828002,
@@ -379,9 +384,9 @@ mod tests {
                                 ..Default::default()
                             },
                             ..Default::default()
-                        }],
+                        }))],
                         ..Default::default()
-                    }],
+                    }))],
                 )]
                 .iter()
                 .cloned()
@@ -430,7 +435,7 @@ mod tests {
                 want: [(
                     "1",
                     vec![
-                        Node {
+                        Rc::new(RefCell::new(Node {
                             duration_ns: 10_000_000,
                             end_ns: 20_000_000,
                             fingerprint: 6903369137866438128,
@@ -443,8 +448,8 @@ mod tests {
                                 ..Default::default()
                             },
                             ..Default::default()
-                        },
-                        Node {
+                        })),
+                        Rc::new(RefCell::new(Node {
                             duration_ns: 10_000_000,
                             end_ns: 30_000_000,
                             fingerprint: 6903370237378066339,
@@ -457,7 +462,7 @@ mod tests {
                                 ..Default::default()
                             },
                             ..Default::default()
-                        },
+                        })),
                     ],
                 )]
                 .iter()
