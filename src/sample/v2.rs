@@ -200,12 +200,13 @@ mod tests {
 
     use serde_path_to_error::Error;
 
+    use super::SampleChunk;
     use crate::{
         frame::Frame,
         sample::v2::{Sample, SampleData},
     };
 
-    use super::SampleChunk;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_sample_format_v2_cocoa() {
