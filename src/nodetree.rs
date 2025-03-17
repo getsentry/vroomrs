@@ -83,15 +83,14 @@ impl Node {
         }
     }
 
-    pub fn close(&mut self, timestamp: u64) {
-        let mut ts = timestamp;
+    pub fn close(&mut self, mut timestamp: u64) {
         if self.end_ns == 0 {
-            self.set_duration(ts);
+            self.set_duration(timestamp);
         } else {
-            ts = self.end_ns;
+            timestamp = self.end_ns;
         }
         for child in &self.children {
-            child.borrow_mut().close(ts);
+            child.borrow_mut().close(timestamp);
         }
     }
 }
