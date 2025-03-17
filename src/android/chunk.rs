@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     nodetree::Node,
-    types::{CallTreeError, ClientSDK, DebugMeta, Platform},
+    types::{CallTreeError, CallTreesStr, ClientSDK, DebugMeta, Platform},
 };
 
 use super::Android;
@@ -37,11 +37,10 @@ pub struct AndroidChunk {
 }
 
 impl AndroidChunk {
-    #[allow(clippy::type_complexity)]
     pub fn call_trees(
         &mut self,
         _active_thread_id: Option<&str>,
-    ) -> Result<HashMap<Cow<str>, Vec<Rc<RefCell<Node>>>>, CallTreeError> {
+    ) -> Result<CallTreesStr, CallTreeError> {
         self.profile.sdk_start_time = Some(self.timestamp.mul(1e9) as u64);
         let call_trees = self.profile.call_trees()?;
 

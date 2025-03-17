@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::frame::{self, Frame};
 use crate::nodetree;
-use crate::types::CallTreeError;
+use crate::types::{CallTreeError, CallTreesU64};
 use crate::{nodetree::Node, types::Platform, MAX_STACK_DEPTH};
 
 const MAIN_THREAD: &str = "main";
@@ -379,16 +379,14 @@ impl Android {
         }
     }
 
-    #[allow(clippy::type_complexity)]
-    pub fn call_trees(&mut self) -> Result<HashMap<u64, Vec<Rc<RefCell<Node>>>>, CallTreeError> {
+    pub fn call_trees(&mut self) -> Result<CallTreesU64, CallTreeError> {
         self.call_trees_with_max_depth(MAX_STACK_DEPTH)
     }
 
-    #[allow(clippy::type_complexity)]
     pub fn call_trees_with_max_depth(
         &mut self,
         max_depth: u64,
-    ) -> Result<HashMap<u64, Vec<Rc<RefCell<Node>>>>, CallTreeError> {
+    ) -> Result<CallTreesU64, CallTreeError> {
         // in case wall-clock.secs is not monotonic, "fix" it
         self.fix_samples_time();
 
@@ -551,7 +549,7 @@ fn generate_fingerprint(stack: &Vec<Rc<RefCell<Node>>>) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, collections::HashMap, rc::Rc};
+    use std::{cell::RefCell, rc::Rc};
 
     use super::AndroidMethod;
     use crate::{
@@ -561,6 +559,7 @@ mod tests {
         },
         frame::Frame,
         nodetree::Node,
+        types::CallTreesU64,
     };
 
     use pretty_assertions::assert_eq;
@@ -1371,7 +1370,7 @@ mod tests {
         struct TestStruct {
             name: String,
             trace: Android,
-            want: HashMap<u64, Vec<Rc<RefCell<Node>>>>,
+            want: CallTreesU64,
             max_depth: u64,
         }
 

@@ -9,7 +9,7 @@ use std::rc::Rc;
 use super::SampleError;
 use crate::frame::Frame;
 use crate::nodetree::Node;
-use crate::types::CallTreeError;
+use crate::types::{CallTreeError, CallTreesStr};
 use crate::types::{ClientSDK, DebugMeta, Platform};
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -75,11 +75,10 @@ pub struct Sample {
 }
 
 impl SampleChunk {
-    #[allow(clippy::type_complexity)]
     pub fn call_trees(
         &mut self,
         active_thread_id: Option<&str>,
-    ) -> Result<HashMap<Cow<str>, Vec<Rc<RefCell<Node>>>>, CallTreeError> {
+    ) -> Result<CallTreesStr, CallTreeError> {
         // Sort samples by timestamp
         self.profile
             .samples
@@ -204,6 +203,7 @@ mod tests {
     use crate::{
         frame::Frame,
         sample::v2::{Sample, SampleData},
+        types::CallTreesStr,
     };
 
     use pretty_assertions::assert_eq;
@@ -227,11 +227,10 @@ mod tests {
     #[test]
     fn test_call_trees() {
         use crate::nodetree::Node;
-        use std::collections::HashMap;
         struct TestStruct<'a> {
             name: String,
             chunk: SampleChunk,
-            want: HashMap<Cow<'a, str>, Vec<Rc<RefCell<Node>>>>,
+            want: CallTreesStr<'a>,
         }
 
         let mut test_cases = [
