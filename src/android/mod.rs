@@ -145,7 +145,7 @@ fn strip_package_name_from_full_method_name(full_name: &str, package: &str) -> S
         .to_string()
 }
 
-// is_android_application_package checks if a symbol belongs to an Android system package.
+/// is_android_application_package checks if a symbol belongs to an Android system package.
 pub fn is_android_application_package(package_name: &str) -> bool {
     for prefix in &ANDROID_PACKAGE_PREFIXES {
         if package_name.starts_with(prefix) {
