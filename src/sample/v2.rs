@@ -14,8 +14,7 @@ use crate::types::{ClientSDK, DebugMeta, Platform};
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct SampleChunk {
-    #[serde(rename = "chunk_id")]
-    pub id: String,
+    pub chunk_id: String,
 
     pub profiler_id: String,
 
@@ -224,6 +223,77 @@ impl ChunkInterface for SampleChunk {
         if matches!(self.platform, Platform::Python) {
             self.profile.trim_python_stacks();
         }
+    }
+
+    fn get_environment(&self) -> Option<&str> {
+        self.environment.as_deref()
+    }
+
+    fn get_id(&self) -> &str {
+        &self.chunk_id
+    }
+
+    fn get_organization_id(&self) -> u64 {
+        self.organization_id
+    }
+
+    fn get_platform(&self) -> Platform {
+        self.platform
+    }
+
+    fn get_profiler_id(&self) -> &str {
+        &self.profiler_id
+    }
+
+    fn get_project_id(&self) -> u64 {
+        self.project_id
+    }
+
+    fn get_received(&self) -> f64 {
+        self.received
+    }
+
+    fn get_release(&self) -> Option<&str> {
+        self.release.as_deref()
+    }
+
+    fn get_retention_days(&self) -> i32 {
+        self.retention_days
+    }
+
+    fn duration_ms(&self) -> u64 {
+        ((self.end_timestamp() - self.start_timestamp()).round() * 1e3) as u64
+    }
+
+    fn start_timestamp(&self) -> f64 {
+        if self.profile.samples.is_empty() {
+            0.0
+        } else {
+            self.profile.samples[0].timestamp
+        }
+    }
+
+    fn end_timestamp(&self) -> f64 {
+        if self.profile.samples.is_empty() {
+            0.0
+        } else {
+            self.profile.samples.last().unwrap().timestamp
+        }
+    }
+
+    fn sdk_name(&self) -> Option<&str> {
+        self.client_sdk.as_deref().map(|sdk| sdk.name.as_str())
+    }
+
+    fn sdk_version(&self) -> Option<&str> {
+        self.client_sdk.as_deref().map(|sdk| sdk.version.as_str())
+    }
+
+    fn storage_path(&self) -> String {
+        format!(
+            "{}/{}/{}/{}",
+            self.organization_id, self.project_id, self.profiler_id, self.chunk_id
+        )
     }
 }
 
