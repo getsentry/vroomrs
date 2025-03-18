@@ -51,13 +51,13 @@ pub enum Platform {
     None,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ClientSDK {
     pub name: String,
     pub version: String,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct DebugMeta {
     pub images: Vec<Image>,
 }
@@ -88,3 +88,50 @@ impl fmt::Display for CallTreeError {
 
 pub type CallTreesU64 = HashMap<u64, Vec<Rc<RefCell<Node>>>>;
 pub type CallTreesStr<'a> = HashMap<Cow<'a, str>, Vec<Rc<RefCell<Node>>>>;
+
+pub trait ChunkInterface {
+    // fn get_environment(&self) -> &str;
+    // fn get_id(&self) -> &str;
+    // fn get_organization_id(&self) -> u64;
+    // fn get_platform(&self) -> Platform;
+    // fn get_profiler_id(&self) -> &str;
+    // fn get_project_id(&self) -> u64;
+    // fn get_received(&self) -> f64;
+    // fn get_release(&self) -> &str;
+    // fn get_retention_days(&self) -> i64;
+    fn call_trees(&mut self, active_thread_id: Option<&str>)
+        -> Result<CallTreesStr, CallTreeError>;
+
+    // fn duration_ms(&self) -> u64;
+    // fn end_timestamp(&self) -> f64;
+    // fn sdk_name(&self) -> &str;
+    // fn sdk_version(&self) -> &str;
+    // fn start_timestamp(&self) -> f64;
+    // fn storage_path(&self) -> &str;
+
+    fn normalize(&mut self);
+
+    /*
+       GetEnvironment() string
+       GetID() string
+       GetOrganizationID() uint64
+       GetPlatform() platform.Platform
+       GetProfilerID() string
+       GetProjectID() uint64
+       GetReceived() float64
+       GetRelease() string
+       GetRetentionDays() int
+       GetOptions() utils.Options
+       GetFrameWithFingerprint(uint32) (frame.Frame, error)
+       CallTrees(activeThreadID *string) (map[string][]*nodetree.Node, error)
+
+       DurationMS() uint64
+       EndTimestamp() float64
+       SDKName() string
+       SDKVersion() string
+       StartTimestamp() float64
+       StoragePath() string
+
+       Normalize()
+    */
+}

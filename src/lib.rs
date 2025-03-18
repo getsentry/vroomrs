@@ -5,7 +5,7 @@ mod debug_images;
 pub mod frame;
 pub mod nodetree;
 pub mod sample;
-mod types;
+pub mod types;
 
 const MAX_STACK_DEPTH: u64 = 128;
 

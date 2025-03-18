@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     nodetree::Node,
-    types::{CallTreeError, CallTreesStr, ClientSDK, DebugMeta, Platform},
+    types::{CallTreeError, CallTreesStr, ChunkInterface, ClientSDK, DebugMeta, Platform},
 };
 
 use super::Android;
@@ -36,8 +36,8 @@ pub struct AndroidChunk {
     pub retention_days: i32,
 }
 
-impl AndroidChunk {
-    pub fn call_trees(
+impl ChunkInterface for AndroidChunk {
+    fn call_trees(
         &mut self,
         _active_thread_id: Option<&str>,
     ) -> Result<CallTreesStr, CallTreeError> {
@@ -52,6 +52,8 @@ impl AndroidChunk {
         }
         Ok(trees_by_thread_id)
     }
+
+    fn normalize(&mut self) {}
 }
 
 #[cfg(test)]
