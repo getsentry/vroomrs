@@ -1,6 +1,11 @@
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, ops::Mul, rc::Rc};
+
 use serde::{Deserialize, Serialize};
 
-use crate::types::{ClientSDK, DebugMeta, Platform};
+use crate::{
+    nodetree::Node,
+    types::{CallTreeError, CallTreesStr, ClientSDK, DebugMeta, Platform},
+};
 
 use super::Android;
 
@@ -29,6 +34,24 @@ pub struct AndroidChunk {
     pub project_id: u64,
     pub received: f64,
     pub retention_days: i32,
+}
+
+impl AndroidChunk {
+    pub fn call_trees(
+        &mut self,
+        _active_thread_id: Option<&str>,
+    ) -> Result<CallTreesStr, CallTreeError> {
+        self.profile.sdk_start_time = Some(self.timestamp.mul(1e9) as u64);
+        let call_trees = self.profile.call_trees()?;
+
+        let mut trees_by_thread_id: HashMap<Cow<str>, Vec<Rc<RefCell<Node>>>> = HashMap::new();
+        for (tid, call_tree) in call_trees {
+            trees_by_thread_id
+                .entry(Cow::Owned(tid.to_string()))
+                .insert_entry(call_tree);
+        }
+        Ok(trees_by_thread_id)
+    }
 }
 
 #[cfg(test)]

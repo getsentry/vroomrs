@@ -7,6 +7,8 @@ pub mod nodetree;
 pub mod sample;
 mod types;
 
+const MAX_STACK_DEPTH: u64 = 128;
+
 /// Formats the sum of two numbers as string.
 #[pyfunction]
 fn sum_as_string(a: usize, b: usize) -> PyResult<String> {

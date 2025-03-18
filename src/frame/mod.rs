@@ -41,6 +41,8 @@ pub struct Frame {
     #[serde(rename = "lineno")]
     pub line: Option<u32>,
 
+    pub method_id: Option<u64>,
+
     pub module: Option<String>,
 
     pub package: Option<String>,
@@ -68,7 +70,7 @@ pub fn is_cocoa_application_package(p: &str) -> bool {
         || p.contains("/data/Containers/Bundle/Application")
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Data {
     #[serde(rename = "deobfuscation_status")]
     pub deobfuscation_status: Option<String>,

@@ -1,7 +1,12 @@
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt;
+use std::rc::Rc;
 
 use crate::debug_images::Image;
+use crate::nodetree::Node;
 use crate::sample::SampleError;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -80,3 +85,6 @@ impl fmt::Display for CallTreeError {
         }
     }
 }
+
+pub type CallTreesU64 = HashMap<u64, Vec<Rc<RefCell<Node>>>>;
+pub type CallTreesStr<'a> = HashMap<Cow<'a, str>, Vec<Rc<RefCell<Node>>>>;

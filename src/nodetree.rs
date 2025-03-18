@@ -2,7 +2,7 @@ use std::{cell::RefCell, hash::Hasher, rc::Rc};
 
 use crate::frame::Frame;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 pub struct Node {
     pub children: Vec<Rc<RefCell<Node>>>,
 
@@ -69,8 +69,8 @@ impl Node {
         frame
     }
 
-    pub fn set_duration(&mut self, t: u64) {
-        self.end_ns = t;
+    pub fn set_duration(&mut self, timestamp: u64) {
+        self.end_ns = timestamp;
         self.duration_ns = self.end_ns - self.start_ns;
     }
 
@@ -80,6 +80,17 @@ impl Node {
         } else {
             h.write(self.package.as_bytes());
             h.write(self.name.as_bytes());
+        }
+    }
+
+    pub fn close(&mut self, mut timestamp: u64) {
+        if self.end_ns == 0 {
+            self.set_duration(timestamp);
+        } else {
+            timestamp = self.end_ns;
+        }
+        for child in &self.children {
+            child.borrow_mut().close(timestamp);
         }
     }
 }
