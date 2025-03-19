@@ -105,7 +105,7 @@ pub type CallTreesStr<'a> = HashMap<Cow<'a, str>, Vec<Rc<RefCell<Node>>>>;
 
 pub trait ChunkInterface {
     fn get_environment(&self) -> Option<&str>;
-    fn get_id(&self) -> &str;
+    fn get_chunk_id(&self) -> &str;
     fn get_organization_id(&self) -> u64;
     fn get_platform(&self) -> Platform;
     fn get_profiler_id(&self) -> &str;

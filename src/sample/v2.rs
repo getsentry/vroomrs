@@ -229,7 +229,7 @@ impl ChunkInterface for SampleChunk {
         self.environment.as_deref()
     }
 
-    fn get_id(&self) -> &str {
+    fn get_chunk_id(&self) -> &str {
         &self.chunk_id
     }
 
