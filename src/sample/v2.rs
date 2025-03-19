@@ -9,13 +9,12 @@ use std::rc::Rc;
 use super::SampleError;
 use crate::frame::Frame;
 use crate::nodetree::Node;
-use crate::types::{CallTreeError, CallTreesStr};
+use crate::types::{CallTreeError, CallTreesStr, ChunkInterface};
 use crate::types::{ClientSDK, DebugMeta, Platform};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct SampleChunk {
-    #[serde(rename = "chunk_id")]
-    pub id: String,
+    pub chunk_id: String,
 
     pub profiler_id: String,
 
@@ -48,7 +47,7 @@ pub struct SampleChunk {
     pub measurements: Option<serde_json::Value>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ThreadMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<String>,
@@ -56,7 +55,7 @@ pub struct ThreadMetadata {
     priority: Option<i32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct SampleData {
     pub frames: Vec<Frame>,
     pub samples: Vec<Sample>,
@@ -64,7 +63,32 @@ pub struct SampleData {
     pub thread_metadata: std::collections::HashMap<String, ThreadMetadata>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+impl SampleData {
+    fn trim_python_stacks(&mut self) {
+        // Find the module frame index in frames
+        let module_frame_index = self.frames.iter().position(|f| {
+            f.file.as_deref() == Some("<string>") && f.function.as_deref() == Some("<module>")
+        });
+
+        // We do nothing if we don't find it
+        let module_frame_index = match module_frame_index {
+            Some(index) => index,
+            None => return,
+        };
+
+        // Iterate through stacks and trim module frame if it's the last frame
+        for stack in &mut self.stacks {
+            if let Some(&last_frame) = stack.last() {
+                if last_frame as usize == module_frame_index {
+                    // Found the module frame so trim it
+                    stack.pop();
+                }
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Sample {
     #[serde(rename = "stack_id")]
     pub stack_id: i32,
@@ -74,8 +98,8 @@ pub struct Sample {
     pub timestamp: f64,
 }
 
-impl SampleChunk {
-    pub fn call_trees(
+impl ChunkInterface for SampleChunk {
+    fn call_trees(
         &mut self,
         active_thread_id: Option<&str>,
     ) -> Result<CallTreesStr, CallTreeError> {
@@ -191,6 +215,86 @@ impl SampleChunk {
         }
         Ok(trees_by_thread_id)
     }
+
+    fn normalize(&mut self) {
+        for frame in &mut self.profile.frames {
+            frame.normalize(self.platform);
+        }
+        if matches!(self.platform, Platform::Python) {
+            self.profile.trim_python_stacks();
+        }
+    }
+
+    fn get_environment(&self) -> Option<&str> {
+        self.environment.as_deref()
+    }
+
+    fn get_id(&self) -> &str {
+        &self.chunk_id
+    }
+
+    fn get_organization_id(&self) -> u64 {
+        self.organization_id
+    }
+
+    fn get_platform(&self) -> Platform {
+        self.platform
+    }
+
+    fn get_profiler_id(&self) -> &str {
+        &self.profiler_id
+    }
+
+    fn get_project_id(&self) -> u64 {
+        self.project_id
+    }
+
+    fn get_received(&self) -> f64 {
+        self.received
+    }
+
+    fn get_release(&self) -> Option<&str> {
+        self.release.as_deref()
+    }
+
+    fn get_retention_days(&self) -> i32 {
+        self.retention_days
+    }
+
+    fn duration_ms(&self) -> u64 {
+        ((self.end_timestamp() - self.start_timestamp()).round() * 1e3) as u64
+    }
+
+    fn start_timestamp(&self) -> f64 {
+        if self.profile.samples.is_empty() {
+            0.0
+        } else {
+            self.profile.samples[0].timestamp
+        }
+    }
+
+    fn end_timestamp(&self) -> f64 {
+        if self.profile.samples.is_empty() {
+            0.0
+        } else {
+            self.profile.samples.last().unwrap().timestamp
+        }
+    }
+
+    fn sdk_name(&self) -> Option<&str> {
+        self.client_sdk.as_deref().map(|sdk| sdk.name.as_str())
+    }
+
+    fn sdk_version(&self) -> Option<&str> {
+        self.client_sdk.as_deref().map(|sdk| sdk.version.as_str())
+    }
+
+    fn storage_path(&self) -> String {
+        format!(
+            "{}/{}/{}/{}",
+            self.organization_id, self.project_id, self.profiler_id, self.chunk_id
+        )
+    }
 }
 
 #[cfg(test)]
@@ -203,7 +307,7 @@ mod tests {
     use crate::{
         frame::Frame,
         sample::v2::{Sample, SampleData},
-        types::CallTreesStr,
+        types::{CallTreesStr, ChunkInterface, Platform},
     };
 
     use pretty_assertions::assert_eq;
@@ -481,6 +585,86 @@ mod tests {
                 "test: {} failed.",
                 test_case.name
             );
+        }
+    }
+
+    #[test]
+    fn test_trim_python_stacks() {
+        struct TestStruct {
+            name: String,
+            chunk: SampleChunk,
+            want: SampleChunk,
+        }
+
+        let mut test_cases = [
+            TestStruct {
+                name: "Remove module frame at the end of a stack".to_string(),
+                chunk: SampleChunk {
+                    platform: Platform::Python,
+                    profile: SampleData {
+                        frames: vec![
+                            Frame {
+                                file: Some("<string>".to_string()),
+                                module: Some("__main__".to_string()),
+                                in_app: Some(true),
+                                line: Some(11),
+                                function: Some("<module>".to_string()),
+                                path: Some("/usr/src/app/<string>".to_string()),
+                                platform: Some(Platform::Python),
+                                ..Default::default()
+                            },
+                            Frame {
+                                file: Some("app/util.py".to_string()),
+                                module: Some("app.util".to_string()),
+                                in_app: Some(true),
+                                line: Some(98),
+                                function: Some("foobar".to_string()),
+                                path: Some("/usr/src/app/util.py".to_string()),
+                                platform: Some(Platform::Python),
+                                ..Default::default()
+                            },
+                        ],
+                        stacks: vec![vec![1, 0]],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                want: SampleChunk {
+                    platform: Platform::Python,
+                    profile: SampleData {
+                        frames: vec![
+                            Frame {
+                                file: Some("<string>".to_string()),
+                                module: Some("__main__".to_string()),
+                                in_app: Some(true),
+                                line: Some(11),
+                                function: Some("<module>".to_string()),
+                                path: Some("/usr/src/app/<string>".to_string()),
+                                platform: Some(Platform::Python),
+                                ..Default::default()
+                            },
+                            Frame {
+                                file: Some("app/util.py".to_string()),
+                                module: Some("app.util".to_string()),
+                                in_app: Some(true),
+                                line: Some(98),
+                                function: Some("foobar".to_string()),
+                                path: Some("/usr/src/app/util.py".to_string()),
+                                platform: Some(Platform::Python),
+                                ..Default::default()
+                            },
+                        ],
+                        stacks: vec![vec![1]],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            }, // end first case
+        ];
+
+        for test in test_cases.as_mut() {
+            test.chunk.normalize();
+            assert_eq!(test.chunk, test.want, "test `{}` failed", test.name);
         }
     }
 }

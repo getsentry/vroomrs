@@ -51,13 +51,27 @@ pub enum Platform {
     None,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ClientSDK {
     pub name: String,
     pub version: String,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug)]
+impl AsRef<ClientSDK> for ClientSDK {
+    fn as_ref(&self) -> &ClientSDK {
+        self
+    }
+}
+
+impl std::ops::Deref for ClientSDK {
+    type Target = ClientSDK;
+
+    fn deref(&self) -> &Self::Target {
+        self
+    }
+}
+
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct DebugMeta {
     pub images: Vec<Image>,
 }
@@ -88,3 +102,27 @@ impl fmt::Display for CallTreeError {
 
 pub type CallTreesU64 = HashMap<u64, Vec<Rc<RefCell<Node>>>>;
 pub type CallTreesStr<'a> = HashMap<Cow<'a, str>, Vec<Rc<RefCell<Node>>>>;
+
+pub trait ChunkInterface {
+    fn get_environment(&self) -> Option<&str>;
+    fn get_id(&self) -> &str;
+    fn get_organization_id(&self) -> u64;
+    fn get_platform(&self) -> Platform;
+    fn get_profiler_id(&self) -> &str;
+    fn get_project_id(&self) -> u64;
+    fn get_received(&self) -> f64;
+    fn get_release(&self) -> Option<&str>;
+    fn get_retention_days(&self) -> i32;
+    fn call_trees(&mut self, active_thread_id: Option<&str>)
+        -> Result<CallTreesStr, CallTreeError>;
+
+    fn duration_ms(&self) -> u64;
+    fn end_timestamp(&self) -> f64;
+    fn start_timestamp(&self) -> f64;
+    fn sdk_name(&self) -> Option<&str>;
+    fn sdk_version(&self) -> Option<&str>;
+
+    fn storage_path(&self) -> String;
+
+    fn normalize(&mut self);
+}

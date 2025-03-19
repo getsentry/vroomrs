@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct Features {
     pub has_debug_info: bool,
     pub has_sources: bool,
@@ -8,7 +8,7 @@ pub struct Features {
     pub has_unwind_info: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Image {
     pub arch: Option<String>,
     pub code_file: Option<String>,
