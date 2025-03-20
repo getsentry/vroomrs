@@ -32,38 +32,38 @@ const ANDROID_PACKAGE_PREFIXES: [&str; 11] = [
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct AndroidThread {
-    pub id: u64,
-    pub name: String,
+    id: u64,
+    name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Eq, PartialEq, Clone)]
-pub struct AndroidMethod {
-    pub class_name: String,
-    pub data: Option<Data>,
+struct AndroidMethod {
+    class_name: String,
+    data: Option<Data>,
     // method_id is not optional, but in our Vroom service,
     // the field was defined with the json tag `json:"id,omitempty"`
     // which means we (wrongly) skip the serialization of such
     // field if it's 0. By using a default value, we can safely deserialize
     // profiles that were stored previously through the vroom service.
     #[serde(default)]
-    pub id: u64,
+    id: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub inline_frames: Option<Vec<AndroidMethod>>,
-    pub name: String,
-    pub signature: String,
-    pub source_file: String,
+    inline_frames: Option<Vec<AndroidMethod>>,
+    name: String,
+    signature: String,
+    source_file: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_line: Option<u32>,
+    source_line: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_col: Option<u32>,
+    source_col: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub in_app: Option<bool>,
+    in_app: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub platform: Option<Platform>,
+    platform: Option<Platform>,
 }
 
 impl AndroidMethod {
-    pub fn full_method_name_from_android_method(&self) -> String {
+    fn full_method_name_from_android_method(&self) -> String {
         // when we we're dealing with js frame that were "converted"
         // to android methods (react-native) we don't have class name
         if self.class_name.is_empty() {
@@ -87,14 +87,14 @@ impl AndroidMethod {
         result
     }
 
-    pub fn package_name(&self) -> &str {
+    fn package_name(&self) -> &str {
         match self.class_name.rfind('.') {
             Some(index) => &self.class_name[..index],
             None => self.class_name.as_ref(),
         }
     }
 
-    pub fn extract_package_name_and_simple_method_name(&self) -> (&str, String) {
+    fn extract_package_name_and_simple_method_name(&self) -> (&str, String) {
         let full_method_name = self.full_method_name_from_android_method();
         let package_name = self.package_name();
 
@@ -104,7 +104,7 @@ impl AndroidMethod {
         (package_name, simple_method_name)
     }
 
-    pub fn frame(&self) -> Frame {
+    fn frame(&self) -> Frame {
         let (package, _) = self.extract_package_name_and_simple_method_name();
         let method_name = self.full_method_name_from_android_method();
         let in_app: Option<bool> = self
@@ -146,7 +146,7 @@ fn strip_package_name_from_full_method_name(full_name: &str, package: &str) -> S
 }
 
 /// is_android_application_package checks if a symbol belongs to an Android system package.
-pub fn is_android_application_package(package_name: &str) -> bool {
+fn is_android_application_package(package_name: &str) -> bool {
     for prefix in &ANDROID_PACKAGE_PREFIXES {
         if package_name.starts_with(prefix) {
             return false;
@@ -156,48 +156,48 @@ pub fn is_android_application_package(package_name: &str) -> bool {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Eq, PartialEq, Clone)]
-pub struct Data {
+struct Data {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub deobfuscation_status: Option<String>,
+    deobfuscation_status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub js_symbolicated: Option<bool>,
+    js_symbolicated: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orig_in_app: Option<i8>,
+    orig_in_app: Option<i8>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Eq, PartialEq)]
-pub struct Duration {
+struct Duration {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub secs: Option<u64>,
+    secs: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub nanos: Option<u64>,
+    nanos: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Eq, PartialEq)]
-pub struct EventMonotonic {
+struct EventMonotonic {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub wall: Option<Duration>,
+    wall: Option<Duration>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub cpu: Option<Duration>,
+    cpu: Option<Duration>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Eq, PartialEq)]
-pub struct EventTime {
+struct EventTime {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub global: Option<Duration>,
+    global: Option<Duration>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub monotonic: Option<EventMonotonic>,
+    monotonic: Option<EventMonotonic>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Action {
+enum Action {
     Enter,
     Exit,
     Unwind,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default)]
-pub enum Clock {
+enum Clock {
     Global,
     Cpu,
     Wall,
@@ -207,31 +207,31 @@ pub enum Clock {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
-pub struct AndroidEvent {
-    pub action: Action,
-    pub thread_id: u64,
+struct AndroidEvent {
+    action: Action,
+    thread_id: u64,
     // method_id is not optional, but in our Vroom service,
     // the field was defined with the json tag `json:"id,omitempty"`
     // which means we (wrongly) skip the serialization of such
     // field if it's 0. By using a default value, we can safely deserialize
     // profiles that were stored previously through the vroom service.
     #[serde(default)]
-    pub method_id: u64,
-    pub time: EventTime,
+    method_id: u64,
+    time: EventTime,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Eq, PartialEq)]
-pub struct Android {
-    pub clock: Clock,
-    pub events: Vec<AndroidEvent>,
-    pub methods: Vec<AndroidMethod>,
-    pub start_time: u64,
-    pub threads: Vec<AndroidThread>,
+struct Android {
+    clock: Clock,
+    events: Vec<AndroidEvent>,
+    methods: Vec<AndroidMethod>,
+    start_time: u64,
+    threads: Vec<AndroidThread>,
     // sdk_start_time, if set (manually), it's an absolute ts in Ns
     // whose value comes from the chunk timestamp set by the sentry SDK.
     // This is used to control the ts during callTree generation.
     #[serde(skip_serializing)]
-    pub sdk_start_time: Option<u64>,
+    sdk_start_time: Option<u64>,
 }
 
 impl Android {
@@ -242,7 +242,7 @@ impl Android {
     ///
     /// This is just a workaround to mitigate this issue, should it
     /// happen.
-    pub fn fix_samples_time(&mut self) {
+    fn fix_samples_time(&mut self) {
         if matches!(self.clock, Clock::Global | Clock::Cpu) {
             return;
         }
@@ -326,7 +326,7 @@ impl Android {
         } // end fix_samples_time
     }
 
-    pub fn timestamp_getter(&self) -> Box<dyn Fn(&EventTime) -> u64 + '_> {
+    fn timestamp_getter(&self) -> Box<dyn Fn(&EventTime) -> u64 + '_> {
         match self.clock {
             Clock::Global => Box::new(|t: &EventTime| {
                 let secs: u64 = if let Some(global) = &t.global {
@@ -379,14 +379,11 @@ impl Android {
         }
     }
 
-    pub fn call_trees(&mut self) -> Result<CallTreesU64, CallTreeError> {
+    fn call_trees(&mut self) -> Result<CallTreesU64, CallTreeError> {
         self.call_trees_with_max_depth(MAX_STACK_DEPTH)
     }
 
-    pub fn call_trees_with_max_depth(
-        &mut self,
-        max_depth: u64,
-    ) -> Result<CallTreesU64, CallTreeError> {
+    fn call_trees_with_max_depth(&mut self, max_depth: u64) -> Result<CallTreesU64, CallTreeError> {
         // in case wall-clock.secs is not monotonic, "fix" it
         self.fix_samples_time();
 
