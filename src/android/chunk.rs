@@ -9,7 +9,7 @@ use crate::{
 
 use super::Android;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct AndroidChunk {
     #[serde(skip_serializing_if = "Option::is_none")]
     build_id: Option<String>,
@@ -116,6 +116,15 @@ impl ChunkInterface for AndroidChunk {
             "{}/{}/{}/{}",
             self.organization_id, self.project_id, self.profiler_id, self.chunk_id
         )
+    }
+
+    /// Serialize the given data structure as a JSON byte vector.
+    fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error> {
+        serde_json::to_vec(&self)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

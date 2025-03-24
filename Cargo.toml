@@ -16,6 +16,7 @@ serde_path_to_error = { version = "0.1.16" }
 regex = { version="1.11.1" }
 once_cell = { version = "1.20.3"}
 fnv_rs = { version = "0.4.3" }
+lz4 = { version = "1.28.1" }
 
 [dev-dependencies]
 pretty_assertions = {version = "1.4.1"}

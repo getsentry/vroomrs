@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -125,4 +126,9 @@ pub trait ChunkInterface {
     fn storage_path(&self) -> String;
 
     fn normalize(&mut self);
+
+    /// Serialize the given data structure as a JSON byte vector.
+    fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;
+
+    fn as_any(&self) -> &dyn Any;
 }
