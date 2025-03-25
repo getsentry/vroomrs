@@ -17,9 +17,16 @@ fn profile_chunk_from_json_str(profile: &str) -> PyResult<ProfileChunk> {
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
 }
 
+#[pyfunction]
+fn decompress_profile_chunk(profile: &[u8]) -> PyResult<ProfileChunk> {
+    ProfileChunk::decompress(profile)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+}
+
 /// A Python module implemented in Rust.
 #[pymodule]
 fn rust_vroom(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(profile_chunk_from_json_str, m)?)?;
+    m.add_function(wrap_pyfunction!(decompress_profile_chunk, m)?)?;
     Ok(())
 }

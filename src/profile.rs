@@ -1,7 +1,7 @@
 use std::io::{self, Result};
 
 use lz4::{Decoder, EncoderBuilder};
-use pyo3::pyclass;
+use pyo3::{pyclass, pymethods};
 
 use crate::{
     android::chunk::AndroidChunk,
@@ -20,7 +20,7 @@ struct MinimumProfile {
 }
 
 impl ProfileChunk {
-    pub fn from_json_vec(profile: &[u8]) -> Result<Self> {
+    pub(crate) fn from_json_vec(profile: &[u8]) -> Result<Self> {
         let min_prof: MinimumProfile = serde_json::from_slice(profile)?;
         match min_prof.version {
             None => {
@@ -38,6 +38,14 @@ impl ProfileChunk {
         }
     }
 
+    pub fn decompress(source: &[u8]) -> Result<Self> {
+        let bytes = decompress(source)?;
+        Self::from_json_vec(bytes.as_ref())
+    }
+}
+
+#[pymethods]
+impl ProfileChunk {
     pub fn normalize(&mut self) {
         self.profile.normalize();
     }
@@ -106,16 +114,14 @@ impl ProfileChunk {
         let prof = self.profile.to_json_vec()?;
         compress(&mut prof.as_slice())
     }
-
-    pub fn decompress(source: &[u8]) -> Result<Self> {
-        let bytes = decompress(source)?;
-        Self::from_json_vec(bytes.as_ref())
-    }
 }
 
 fn compress(source: &mut &[u8]) -> Result<Vec<u8>> {
     let b: Vec<u8> = vec![];
-    let mut encoder = EncoderBuilder::new().level(9).build(b)?;
+    let mut encoder = EncoderBuilder::new()
+        .block_checksum(lz4::liblz4::BlockChecksum::NoBlockChecksum)
+        .level(9)
+        .build(b)?;
     io::copy(source, &mut encoder)?;
     let (compressed_data, res) = encoder.finish();
     match res {

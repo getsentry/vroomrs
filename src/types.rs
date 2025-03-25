@@ -1,3 +1,4 @@
+use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::borrow::Cow;
@@ -37,6 +38,7 @@ pub struct ChunkMeasurementValue {
     value: f64,
 }
 
+#[pyclass(eq, eq_int)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
@@ -74,12 +76,12 @@ impl std::ops::Deref for ClientSDK {
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct DebugMeta {
-    pub images: Vec<Image>,
+    pub images: Option<Vec<Image>>,
 }
 
 impl DebugMeta {
     pub fn is_empty(&self) -> bool {
-        self.images.is_empty()
+        self.images.as_ref().is_none_or(|images| images.is_empty())
     }
 }
 
