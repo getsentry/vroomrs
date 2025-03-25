@@ -1,5 +1,7 @@
-use pyo3::pyclass;
-use serde_json::Error;
+use std::io::{self, Result};
+
+use lz4::{Decoder, EncoderBuilder};
+use pyo3::{pyclass, pymethods};
 
 use crate::{
     android::chunk::AndroidChunk,
@@ -18,17 +20,17 @@ struct MinimumProfile {
 }
 
 impl ProfileChunk {
-    pub fn from_json_string(profile: &str) -> Result<Self, Error> {
-        let min_prof: MinimumProfile = serde_json::from_str(profile)?;
+    pub(crate) fn from_json_vec(profile: &[u8]) -> Result<Self> {
+        let min_prof: MinimumProfile = serde_json::from_slice(profile)?;
         match min_prof.version {
             None => {
-                let android: AndroidChunk = serde_json::from_str(profile)?;
+                let android: AndroidChunk = serde_json::from_slice(profile)?;
                 Ok(ProfileChunk {
                     profile: Box::new(android),
                 })
             }
             Some(_) => {
-                let sample: SampleChunk = serde_json::from_str(profile)?;
+                let sample: SampleChunk = serde_json::from_slice(profile)?;
                 Ok(ProfileChunk {
                     profile: Box::new(sample),
                 })
@@ -36,6 +38,14 @@ impl ProfileChunk {
         }
     }
 
+    pub fn decompress(source: &[u8]) -> Result<Self> {
+        let bytes = decompress(source)?;
+        Self::from_json_vec(bytes.as_ref())
+    }
+}
+
+#[pymethods]
+impl ProfileChunk {
     pub fn normalize(&mut self) {
         self.profile.normalize();
     }
@@ -99,40 +109,69 @@ impl ProfileChunk {
     pub fn storage_path(&self) -> String {
         self.profile.storage_path()
     }
+
+    pub fn compress(&self) -> Result<Vec<u8>> {
+        let prof = self.profile.to_json_vec()?;
+        compress(&mut prof.as_slice())
+    }
+}
+
+fn compress(source: &mut &[u8]) -> Result<Vec<u8>> {
+    let b: Vec<u8> = vec![];
+    let mut encoder = EncoderBuilder::new()
+        .block_checksum(lz4::liblz4::BlockChecksum::NoBlockChecksum)
+        .level(9)
+        .build(b)?;
+    io::copy(source, &mut encoder)?;
+    let (compressed_data, res) = encoder.finish();
+    match res {
+        Ok(_) => Ok(compressed_data),
+        Err(error) => Err(error),
+    }
+}
+
+fn decompress(source: &[u8]) -> Result<Vec<u8>> {
+    let mut decoder = Decoder::new(source)?;
+    let mut decoded_data: Vec<u8> = vec![];
+    io::copy(&mut decoder, &mut decoded_data)?;
+    Ok(decoded_data)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{profile::ProfileChunk, types::Platform};
+    use crate::{
+        android::chunk::AndroidChunk, profile::ProfileChunk, sample::v2::SampleChunk,
+        types::Platform,
+    };
 
     #[test]
-    fn test_from_json_string() {
+    fn test_from_json_vec() {
         struct TestStruct {
             name: String,
-            profile_json: &'static str,
+            profile_json: &'static [u8],
             want: Platform,
         }
 
         let test_cases = [
             TestStruct {
                 name: "cocoa profile".to_string(),
-                profile_json: include_str!("../tests/fixtures/sample/v2/valid_cocoa.json"),
+                profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_cocoa.json"),
                 want: Platform::Cocoa,
             },
             TestStruct {
                 name: "cocoa profile".to_string(),
-                profile_json: include_str!("../tests/fixtures/sample/v2/valid_python.json"),
+                profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_python.json"),
                 want: Platform::Python,
             },
             TestStruct {
                 name: "cocoa profile".to_string(),
-                profile_json: include_str!("../tests/fixtures/android/chunk/valid.json"),
+                profile_json: include_bytes!("../tests/fixtures/android/chunk/valid.json"),
                 want: Platform::Android,
             },
         ];
 
         for test in test_cases {
-            let prof = ProfileChunk::from_json_string(test.profile_json);
+            let prof = ProfileChunk::from_json_vec(test.profile_json);
             assert!(prof.is_ok());
             assert_eq!(
                 prof.unwrap().get_platform(),
@@ -140,6 +179,65 @@ mod tests {
                 "test `{}` failed",
                 test.name
             )
+        }
+    }
+
+    #[test]
+    fn test_compress_decompress() {
+        struct TestStruct {
+            name: String,
+            payload: &'static [u8],
+        }
+
+        let test_cases = [
+            TestStruct {
+                name: "compressing and decompressing cocoa (V2)".to_string(),
+                payload: include_bytes!("../tests/fixtures/sample/v2/valid_cocoa.json"),
+            },
+            TestStruct {
+                name: "compressing and decompressing python (V2)".to_string(),
+                payload: include_bytes!("../tests/fixtures/sample/v2/valid_python.json"),
+            },
+            TestStruct {
+                name: "compressing and decompressing android chunk".to_string(),
+                payload: include_bytes!("../tests/fixtures/android/chunk/valid.json"),
+            },
+        ];
+
+        for test in test_cases {
+            let profile = ProfileChunk::from_json_vec(test.payload).unwrap();
+
+            let compressed_profile_bytes = profile.compress().unwrap();
+            let decompressed_profile =
+                ProfileChunk::decompress(compressed_profile_bytes.as_slice()).unwrap();
+
+            let equals = if profile.get_platform() == Platform::Android {
+                let original_sample = profile
+                    .profile
+                    .as_any()
+                    .downcast_ref::<AndroidChunk>()
+                    .unwrap();
+                let final_sample = decompressed_profile
+                    .profile
+                    .as_any()
+                    .downcast_ref::<AndroidChunk>()
+                    .unwrap();
+                original_sample == final_sample
+            } else {
+                let original_sample = profile
+                    .profile
+                    .as_any()
+                    .downcast_ref::<SampleChunk>()
+                    .unwrap();
+                let final_sample = decompressed_profile
+                    .profile
+                    .as_any()
+                    .downcast_ref::<SampleChunk>()
+                    .unwrap();
+                original_sample == final_sample
+            };
+
+            assert!(equals, "test `{}` failed", test.name);
         }
     }
 }

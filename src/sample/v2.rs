@@ -1,5 +1,6 @@
 use fnv_rs::Fnv64;
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -294,6 +295,15 @@ impl ChunkInterface for SampleChunk {
             "{}/{}/{}/{}",
             self.organization_id, self.project_id, self.profiler_id, self.chunk_id
         )
+    }
+
+    /// Serialize the given data structure as a JSON byte vector.
+    fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error> {
+        serde_json::to_vec(&self)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

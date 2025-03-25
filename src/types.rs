@@ -1,4 +1,6 @@
+use pyo3::pyclass;
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -36,6 +38,7 @@ pub struct ChunkMeasurementValue {
     value: f64,
 }
 
+#[pyclass(eq, eq_int)]
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
@@ -73,12 +76,12 @@ impl std::ops::Deref for ClientSDK {
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
 pub struct DebugMeta {
-    pub images: Vec<Image>,
+    pub images: Option<Vec<Image>>,
 }
 
 impl DebugMeta {
     pub fn is_empty(&self) -> bool {
-        self.images.is_empty()
+        self.images.as_ref().is_none_or(|images| images.is_empty())
     }
 }
 
@@ -125,4 +128,9 @@ pub trait ChunkInterface {
     fn storage_path(&self) -> String;
 
     fn normalize(&mut self);
+
+    /// Serialize the given data structure as a JSON byte vector.
+    fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;
+
+    fn as_any(&self) -> &dyn Any;
 }
