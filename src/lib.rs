@@ -25,7 +25,7 @@ fn decompress_profile_chunk(profile: &[u8]) -> PyResult<ProfileChunk> {
 
 /// A Python module implemented in Rust.
 #[pymodule]
-fn rust_vroom(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn vroomrs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(profile_chunk_from_json_str, m)?)?;
     m.add_function(wrap_pyfunction!(decompress_profile_chunk, m)?)?;
     Ok(())
