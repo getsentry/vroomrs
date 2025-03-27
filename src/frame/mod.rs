@@ -1,7 +1,8 @@
 mod python_std_lib;
 
-use std::collections::HashSet;
+use std::{collections::HashSet, hash::Hasher};
 
+use fnv_rs::Fnv64;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -57,6 +58,9 @@ pub struct Frame {
     pub symbol: Option<String>,
 
     pub platform: Option<Platform>,
+
+    #[serde(skip)]
+    pub is_react_native: bool,
 }
 
 /// Determines whether the image represents that of the application
@@ -307,6 +311,19 @@ impl Frame {
         if let Some(addr) = &self.instruction_addr {
             h.write(addr.as_bytes());
         }
+    }
+
+    pub fn fingerprint(&self) -> u32 {
+        let mut hasher = Fnv64::default();
+        hasher.write(self.module_or_package().as_bytes());
+        hasher.write(":".as_bytes());
+        hasher.write(self.function.as_deref().unwrap_or_default().as_bytes());
+
+        // casting to an uint32 here because snuba does not handle uint64 values well
+        // as it is converted to a float somewhere not changing to the 32 bit hash
+        // function here to preserve backwards compatibility with existing fingerprints
+        // that we can cast
+        hasher.finish() as u32
     }
 }
 

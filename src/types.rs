@@ -39,7 +39,7 @@ pub struct ChunkMeasurementValue {
 }
 
 #[pyclass(eq, eq_int)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum Platform {
     Android,
