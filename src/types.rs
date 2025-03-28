@@ -1,4 +1,5 @@
-use pyo3::pyclass;
+use pyo3::exceptions::PyValueError;
+use pyo3::{pyclass, PyErr};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::borrow::Cow;
@@ -100,6 +101,12 @@ impl fmt::Display for CallTreeError {
             },
             CallTreeError::Android => write!(f, "generic android call_tree error"),
         }
+    }
+}
+
+impl From<CallTreeError> for PyErr {
+    fn from(error: CallTreeError) -> Self {
+        PyValueError::new_err(error.to_string())
     }
 }
 

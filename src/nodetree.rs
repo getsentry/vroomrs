@@ -6,6 +6,7 @@ use std::{
 };
 
 use once_cell::sync::Lazy;
+use pyo3::pyclass;
 
 use crate::{frame::Frame, types::Platform};
 
@@ -219,6 +220,7 @@ impl Node {
     }
 }
 
+#[pyclass]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CallTreeFunction {
     pub fingerprint: u32,

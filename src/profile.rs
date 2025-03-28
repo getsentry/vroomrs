@@ -1,12 +1,16 @@
-use std::io::{self, Result};
+use std::{
+    collections::HashMap,
+    io::{self},
+};
 
 use lz4::{Decoder, EncoderBuilder};
-use pyo3::{pyclass, pymethods};
+use pyo3::{pyclass, pymethods, PyErr, PyResult};
 
 use crate::{
     android::chunk::AndroidChunk,
+    nodetree::CallTreeFunction,
     sample::v2::SampleChunk,
-    types::{ChunkInterface, Platform},
+    types::{CallTreesStr, ChunkInterface, Platform},
 };
 
 #[pyclass]
@@ -20,7 +24,7 @@ struct MinimumProfile {
 }
 
 impl ProfileChunk {
-    pub(crate) fn from_json_vec(profile: &[u8]) -> Result<Self> {
+    pub(crate) fn from_json_vec(profile: &[u8]) -> Result<Self, serde_json::Error> {
         let min_prof: MinimumProfile = serde_json::from_slice(profile)?;
         match min_prof.version {
             None => {
@@ -38,9 +42,10 @@ impl ProfileChunk {
         }
     }
 
-    pub fn decompress(source: &[u8]) -> Result<Self> {
+    pub fn decompress(source: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
         let bytes = decompress(source)?;
         Self::from_json_vec(bytes.as_ref())
+            .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
     }
 }
 
@@ -110,13 +115,54 @@ impl ProfileChunk {
         self.profile.storage_path()
     }
 
-    pub fn compress(&self) -> Result<Vec<u8>> {
-        let prof = self.profile.to_json_vec()?;
+    pub fn compress(&self) -> PyResult<Vec<u8>> {
+        let prof = self
+            .profile
+            .to_json_vec()
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
         compress(&mut prof.as_slice())
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    }
+
+    #[pyo3(signature = (min_depth, filter_system_frames, max_unique_functions=None))]
+    pub fn extract_functions_metrics(
+        &mut self,
+        min_depth: u16,
+        filter_system_frames: bool,
+        max_unique_functions: Option<usize>,
+    ) -> PyResult<Vec<CallTreeFunction>> {
+        let call_trees: CallTreesStr = self.profile.call_trees(None)?;
+        let mut functions: HashMap<u32, CallTreeFunction> = HashMap::new();
+
+        for (tid, call_trees_for_thread) in &call_trees {
+            for call_tree in call_trees_for_thread {
+                call_tree
+                    .borrow_mut()
+                    .collect_functions(&mut functions, tid, 0, min_depth);
+            }
+        }
+
+        let mut functions_list: Vec<CallTreeFunction> = Vec::with_capacity(functions.len());
+        for (_fingerprint, function) in functions {
+            if function.sample_count <= 1 || (filter_system_frames && !function.in_app) {
+                // if there's only ever a single sample for this function in
+                // the profile, or the function represents a system frame, and we
+                // decided to ignore system frames, we skip over it to reduce the
+                //amount of data
+                continue;
+            }
+            functions_list.push(function);
+        }
+
+        // sort the list in descending order, and take the top N results
+        functions_list.sort_by(|a, b| b.sum_self_time_ns.cmp(&a.sum_self_time_ns));
+
+        functions_list.truncate(max_unique_functions.unwrap_or(functions_list.len()));
+        Ok(functions_list)
     }
 }
 
-fn compress(source: &mut &[u8]) -> Result<Vec<u8>> {
+fn compress(source: &mut &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let b: Vec<u8> = vec![];
     let mut encoder = EncoderBuilder::new()
         .block_checksum(lz4::liblz4::BlockChecksum::NoBlockChecksum)
@@ -130,7 +176,7 @@ fn compress(source: &mut &[u8]) -> Result<Vec<u8>> {
     }
 }
 
-fn decompress(source: &[u8]) -> Result<Vec<u8>> {
+fn decompress(source: &[u8]) -> Result<Vec<u8>, std::io::Error> {
     let mut decoder = Decoder::new(source)?;
     let mut decoded_data: Vec<u8> = vec![];
     io::copy(&mut decoder, &mut decoded_data)?;
