@@ -1,2 +1,3 @@
 maturin==1.8.1
 pre_commit==4.1.0
+Sphinx==8.2.3

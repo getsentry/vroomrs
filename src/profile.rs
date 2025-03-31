@@ -13,6 +13,7 @@ use crate::{
     types::{CallTreesStr, ChunkInterface, Platform},
 };
 
+/// This is a :class:`ProfileChunk` class
 #[pyclass]
 pub struct ProfileChunk {
     pub profile: Box<dyn ChunkInterface + Send + Sync>,
@@ -42,7 +43,7 @@ impl ProfileChunk {
         }
     }
 
-    pub fn decompress(source: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
+    pub(crate) fn decompress(source: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
         let bytes = decompress(source)?;
         Self::from_json_vec(bytes.as_ref())
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
@@ -51,70 +52,171 @@ impl ProfileChunk {
 
 #[pymethods]
 impl ProfileChunk {
+    /// Applies the various normalization steps,
+    /// depending on the profile's platform.
     pub fn normalize(&mut self) {
         self.profile.normalize();
     }
 
+    /// Returns the environment.
+    ///
+    /// Returns:
+    ///     str
+    ///         The environment, or None, if release is not available.
     pub fn get_environment(&self) -> Option<&str> {
         self.profile.get_environment()
     }
 
-    pub fn get_id(&self) -> &str {
+    /// Returns the profile chunk ID.
+    ///
+    /// Returns:
+    ///     str
+    ///         The profile chunk ID.
+    pub fn get_chunk_id(&self) -> &str {
         self.profile.get_chunk_id()
     }
 
+    /// Returns the organization ID.
+    ///
+    /// Returns:
+    ///     int
+    ///         The organization ID to which the profile belongs.
     pub fn get_organization_id(&self) -> u64 {
         self.profile.get_organization_id()
     }
 
+    /// Returns the profile platform.
+    ///
+    /// Returns:
+    ///     :class:`Platform`
+    ///         The profile's platform.
     pub fn get_platform(&self) -> Platform {
         self.profile.get_platform()
     }
 
+    /// Returns the profiler ID.
+    ///
+    /// Returns:
+    ///     str
+    ///         The profile ID of the profile chunk.
     pub fn get_profiler_id(&self) -> &str {
         self.profile.get_profiler_id()
     }
 
+    /// Returns the project ID.
+    ///
+    /// Returns:
+    ///     int
+    ///         The project ID to which the profile belongs.
     pub fn get_project_id(&self) -> u64 {
         self.profile.get_project_id()
     }
 
+    /// Returns the release.
+    ///
+    /// Returns:
+    ///     float
     pub fn get_received(&self) -> f64 {
         self.profile.get_received()
     }
 
+    /// Returns the release.
+    ///
+    /// Returns:
+    ///     str
+    ///         The release of the SDK used to collect this profile,
+    ///         or None, if release is not available.
     pub fn get_release(&self) -> Option<&str> {
         self.profile.get_release()
     }
 
+    /// Returns the retention days.
+    ///
+    /// Returns:
+    ///     int
+    ///         The retention days.
     pub fn get_retention_days(&self) -> i32 {
         self.profile.get_retention_days()
     }
 
+    /// Returns the duration of the profile in ms.
+    ///
+    /// Returns:
+    ///     int
+    ///         The duration of the profile in ms.
     pub fn duration_ms(&self) -> u64 {
         self.profile.duration_ms()
     }
 
+    /// Returns the start timestamp of the profile.
+    ///
+    /// The timestamp is a Unix timestamp in seconds
+    /// with millisecond precision.
+    ///
+    /// Returns:
+    ///     float
+    ///         The start timestamp of the profile.
     pub fn start_timestamp(&self) -> f64 {
         self.profile.start_timestamp()
     }
 
+    /// Returns the end timestamp of the profile.
+    ///
+    /// The timestamp is a Unix timestamp in seconds
+    /// with millisecond precision.
+    ///
+    /// Returns:
+    ///     float
+    ///         The end timestamp of the profile.
     pub fn end_timestamp(&self) -> f64 {
         self.profile.end_timestamp()
     }
 
+    /// Returns the SDK name.
+    ///
+    /// Returns:
+    ///     str
+    ///         The name of the SDK used to collect this profile,
+    ///         or None, if version is not available.
     pub fn sdk_name(&self) -> Option<&str> {
         self.profile.sdk_name()
     }
 
+    /// Returns the SDK version.
+    ///
+    /// Returns:
+    ///     str
+    ///         The version of the SDK used to collect this profile,
+    ///         or None, if version is not available.
     pub fn sdk_version(&self) -> Option<&str> {
         self.profile.sdk_version()
     }
 
+    /// Returns the storage path of the profile.
+    ///
+    /// Returns:
+    ///     str
+    ///         The storage path of the profile.
     pub fn storage_path(&self) -> String {
         self.profile.storage_path()
     }
 
+    /// Compresses the profile with lz4.
+    ///
+    /// This method serializes the profile to json and then compresses it with lz4,
+    /// returning the bytes representing the lz4 encoded profile.
+    ///
+    /// Returns:
+    ///     bytes
+    ///         A bytes object representing the lz4 encoded profile.
+    ///
+    /// Raises:
+    ///     pyo3.exceptions.PyException: If an error occurs during the extraction process.
+    ///
+    /// Example:
+    ///     >>> compressed_profile = profile.compress()
+    ///     >>> with open("profile_compressed.lz4", "wb+") as binary_file:
+    ///     ...     binary_file.write(compressed_profile)
     pub fn compress(&self) -> PyResult<Vec<u8>> {
         let prof = self
             .profile
@@ -124,6 +226,31 @@ impl ProfileChunk {
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
     }
 
+    /// Extracts function metrics from the call tree.
+    ///
+    /// This method analyzes the call tree and extracts metrics for each function,
+    /// returning a list of `CallTreeFunction` objects.
+    ///
+    /// Args:
+    ///     min_depth (int): The minimum depth of the node in the call tree.
+    ///         When computing slowest functions, ignore frames/node whose depth in the callTree
+    ///         is less than min_depth (i.e. if min_depth=1, we'll ignore root frames).
+    ///     filter_system_frames (bool): If `True`, system frames (e.g., standard library calls) will be filtered out.
+    ///     max_unique_functions (int): An optional maximum number of unique functions to extract.
+    ///         If provided, only the top `max_unique_functions` slowest functions will be returned.
+    ///         If `None`, all functions will be returned.
+    ///
+    /// Returns:
+    ///     list[:class:`CallTreeFunction`]
+    ///         A list of :class:`CallTreeFunction` objects, each containing metrics for a function in the call tree.
+    ///
+    /// Raises:
+    ///     pyo3.exceptions.PyException: If an error occurs during the extraction process.
+    ///
+    /// Example:
+    ///     >>> metrics = call_tree.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10)
+    ///     >>> for function_metric in metrics:
+    ///     ...     do_something(function_metric)
     #[pyo3(signature = (min_depth, filter_system_frames, max_unique_functions=None))]
     pub fn extract_functions_metrics(
         &mut self,

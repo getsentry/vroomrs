@@ -6,7 +6,7 @@ use std::{
 };
 
 use once_cell::sync::Lazy;
-use pyo3::pyclass;
+use pyo3::{pyclass, pymethods};
 
 use crate::{frame::Frame, types::Platform};
 
@@ -232,6 +232,90 @@ pub struct CallTreeFunction {
     pub sample_count: u64,
     pub thread_id: String,
     pub max_duration: u64,
+}
+
+#[pymethods]
+impl CallTreeFunction {
+    /// Returns the function fingerprint.
+    ///
+    /// Returns:
+    ///     int
+    ///         The function fingerprint.
+    pub fn get_fingerprint(&self) -> u32 {
+        self.fingerprint
+    }
+
+    /// Returns the function name.
+    ///
+    /// Returns:
+    ///     str
+    ///         The function name.
+    pub fn get_function(&self) -> &str {
+        &self.function
+    }
+
+    /// Returns the package name.
+    ///
+    /// Returns:
+    ///     str
+    ///         The package name.
+    pub fn get_package(&self) -> &str {
+        &self.package
+    }
+
+    /// Returns whether the function is in an app or system one.
+    ///
+    /// Returns:
+    ///     bool
+    ///         True if the function is an app one, False otherwise.
+    pub fn get_in_app(&self) -> bool {
+        self.in_app
+    }
+
+    /// Returns the self times in nanoseconds.
+    ///
+    /// Returns:
+    ///     list[int]
+    ///         The self times in nanoseconds.
+    pub fn get_self_times_ns(&self) -> Vec<u64> {
+        self.self_times_ns.clone()
+    }
+
+    /// Returns the sum of self times in nanoseconds.
+    ///
+    /// Returns:
+    ///     int
+    ///         The sum of self times in nanoseconds.
+    pub fn get_sum_self_time_ns(&self) -> u64 {
+        self.sum_self_time_ns
+    }
+
+    /// Returns the sample count.
+    ///
+    /// Returns:
+    ///     int
+    ///         The sample count.
+    pub fn get_sample_count(&self) -> u64 {
+        self.sample_count
+    }
+
+    /// Returns the thread ID.
+    ///
+    /// Returns:
+    ///     str
+    ///         The thread ID.
+    pub fn get_thread_id(&self) -> &str {
+        &self.thread_id
+    }
+
+    /// Returns the maximum duration in nanoseconds.
+    ///
+    /// Returns:
+    ///     int
+    ///         The maximum duration in nanoseconds.
+    pub fn get_max_duration(&self) -> u64 {
+        self.max_duration
+    }
 }
 
 fn should_aggregate_frame(frame: &Frame) -> bool {
