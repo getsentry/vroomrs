@@ -7,10 +7,20 @@ check: style lint
 
 # Builds
 
-build:
-	@cargo +stable build --all --all-features
-.PHONY: build
+build: build-rust build-maturin build-docs
+.PHONY: check
 
+build-rust:
+	@cargo +stable build --all --all-features
+.PHONY: build-rust
+
+build-maturin:
+	maturin develop
+.PHONY: build-maturin
+
+build-docs:
+	cd docs && make clean html
+.PHONY: build-docs
 
 # Tests
 
