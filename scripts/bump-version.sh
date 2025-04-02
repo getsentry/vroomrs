@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
-# Store the target version in an environment variable for Perl to access safely
-export BUMP_VERSION="$2"
+OLD_VERSION="${1}"
+NEW_VERSION="${2}"
 
-echo "Bumping version: ${BUMP_VERSION}"
+echo "Current version: $OLD_VERSION"
+echo "Bumping version: $NEW_VERSION"
 
-# Use Perl for in-place editing, replacing only the first occurrence
-perl -i -pe 's/^version =.*/version = "$ENV{BUMP_VERSION}"/ && ($found=1) unless $found' Cargo.toml
+function replace() {
+    ! grep "$2" $3
+    perl -i -pe "s/$1/$2/g" $3
+    grep "$2" $3  # verify that replacement was successful
+}
 
-# Unset the temporary environment variable
-unset BUMP_VERSION
+replace "^version = \"[0-9.]+\"" "version = \"$NEW_VERSION\"" Cargo.toml
+cargo metadata --format-version 1 > /dev/null # update `Cargo.lock`
