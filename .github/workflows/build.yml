@@ -4,15 +4,6 @@ on:
   push:
     branches:
       - "release/**"
-on:
-  push:
-    branches:
-      - main
-      - master
-    tags:
-      - '*'
-  pull_request:
-  workflow_dispatch:
 
 permissions:
   contents: read
