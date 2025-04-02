@@ -20,4 +20,4 @@ requireNames:
   - /^vroomrs-*-macosx_*_x86_64.whl$/
   - /^vroomrs-*-macosx_*_arm64.whl$/
   - /^vroomrs-*-manylinux_*_aarch64_*_arm64.whl$/
-  - /^vroomrs-*-manylinux_*_86_64.whl$/
+  - /^vroomrs-*-manylinux_*_x86_64.whl$/
