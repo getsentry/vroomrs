@@ -17,6 +17,6 @@ targets:
   - name: sentry-pypi
     internalPypiRepo: getsentry/pypi
 requireNames:
-  - /^vroomrs-*-macosx_*_x86_64.whl$/
-  - /^vroomrs-*-macosx_*_arm64.whl$/
-  - /^vroomrs-*-manylinux_*_x86_64.whl$/
+  - /^vroomrs-.*-macosx_.*_x86_64.whl$/
+  - /^vroomrs-.*-macosx_.*_arm64.whl$/
+  - /^vroomrs-.*-manylinux_.*_x86_64.whl$/
