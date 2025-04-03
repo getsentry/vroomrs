@@ -3,7 +3,7 @@ minVersion: "0.34.1"
 github:
   owner: getsentry
   repo: vroomrs
-changelogPolicy: auto
+changelogPolicy: none
 
 statusProvider:
   name: github
