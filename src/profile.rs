@@ -43,6 +43,26 @@ impl ProfileChunk {
         }
     }
 
+    pub(crate) fn from_json_vec_and_platform(
+        profile: &[u8],
+        platform: &str,
+    ) -> Result<Self, serde_json::Error> {
+        match platform {
+            "android" => {
+                let android: AndroidChunk = serde_json::from_slice(profile)?;
+                Ok(ProfileChunk {
+                    profile: Box::new(android),
+                })
+            }
+            _ => {
+                let sample: SampleChunk = serde_json::from_slice(profile)?;
+                Ok(ProfileChunk {
+                    profile: Box::new(sample),
+                })
+            }
+        }
+    }
+
     pub(crate) fn decompress(source: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
         let bytes = decompress(source)?;
         Self::from_json_vec(bytes.as_ref())
@@ -332,12 +352,12 @@ mod tests {
                 want: Platform::Cocoa,
             },
             TestStruct {
-                name: "cocoa profile".to_string(),
+                name: "python profile".to_string(),
                 profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_python.json"),
                 want: Platform::Python,
             },
             TestStruct {
-                name: "cocoa profile".to_string(),
+                name: "android profile".to_string(),
                 profile_json: include_bytes!("../tests/fixtures/android/chunk/valid.json"),
                 want: Platform::Android,
             },
@@ -345,6 +365,48 @@ mod tests {
 
         for test in test_cases {
             let prof = ProfileChunk::from_json_vec(test.profile_json);
+            assert!(prof.is_ok());
+            assert_eq!(
+                prof.unwrap().get_platform(),
+                test.want,
+                "test `{}` failed",
+                test.name
+            )
+        }
+    }
+
+    #[test]
+    fn test_from_json_vec_and_platform() {
+        struct TestStruct<'a> {
+            name: String,
+            platform: &'a str,
+            profile_json: &'static [u8],
+            want: Platform,
+        }
+
+        let test_cases = [
+            TestStruct {
+                name: "cocoa profile".to_string(),
+                platform: "cocoa",
+                profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_cocoa.json"),
+                want: Platform::Cocoa,
+            },
+            TestStruct {
+                name: "python profile".to_string(),
+                platform: "python",
+                profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_python.json"),
+                want: Platform::Python,
+            },
+            TestStruct {
+                name: "android profile".to_string(),
+                platform: "android",
+                profile_json: include_bytes!("../tests/fixtures/android/chunk/valid.json"),
+                want: Platform::Android,
+            },
+        ];
+
+        for test in test_cases {
+            let prof = ProfileChunk::from_json_vec_and_platform(test.profile_json, test.platform);
             assert!(prof.is_ok());
             assert_eq!(
                 prof.unwrap().get_platform(),

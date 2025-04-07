@@ -20,6 +20,12 @@ const MAX_STACK_DEPTH: u64 = 128;
 /// profile : str
 ///   A profile serialized as json string
 ///
+///     platform (string): An optional string representing the profile platform.
+///         If provided, we can directly deserialize to the right profile chunk
+///         more efficiently.
+///         If the platform is known at the time this function is invoked, it's
+///         recommended to always pass it.
+///
 /// Returns
 /// -------
 /// :class:`vroomrs.ProfileChunk`
@@ -31,9 +37,14 @@ const MAX_STACK_DEPTH: u64 = 128;
 ///     If an error occurs during the extraction process.
 ///
 #[pyfunction]
-fn profile_chunk_from_json_str(profile: &str) -> PyResult<ProfileChunk> {
-    ProfileChunk::from_json_vec(profile.as_bytes())
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+#[pyo3(signature = (profile, platform=None))]
+fn profile_chunk_from_json_str(profile: &str, platform: Option<&str>) -> PyResult<ProfileChunk> {
+    match platform {
+        Some(platform) => ProfileChunk::from_json_vec_and_platform(profile.as_bytes(), platform)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+        None => ProfileChunk::from_json_vec(profile.as_bytes())
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+    }
 }
 
 /// Returns a `ProfileChunk` instance from a lz4 encoded profile.
