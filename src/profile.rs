@@ -10,7 +10,7 @@ use crate::{
     android::chunk::AndroidChunk,
     nodetree::CallTreeFunction,
     sample::v2::SampleChunk,
-    types::{CallTreesStr, ChunkInterface, Platform},
+    types::{CallTreesStr, ChunkInterface},
 };
 
 /// This is a :class:`ProfileChunk` class
@@ -108,10 +108,19 @@ impl ProfileChunk {
     /// Returns the profile platform.
     ///
     /// Returns:
-    ///     :class:`Platform`
-    ///         The profile's platform.
-    pub fn get_platform(&self) -> Platform {
-        self.profile.get_platform()
+    ///     str
+    ///         The profile's platform. One of the following values:
+    ///             * android
+    ///             * cocoa
+    ///             * java
+    ///             * javascript
+    ///             * php
+    ///             * node
+    ///             * python
+    ///             * rust
+    ///             * none
+    pub fn get_platform(&self) -> String {
+        self.profile.get_platform().to_string()
     }
 
     /// Returns the profiler ID.
@@ -342,24 +351,24 @@ mod tests {
         struct TestStruct {
             name: String,
             profile_json: &'static [u8],
-            want: Platform,
+            want: String,
         }
 
         let test_cases = [
             TestStruct {
                 name: "cocoa profile".to_string(),
                 profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_cocoa.json"),
-                want: Platform::Cocoa,
+                want: Platform::Cocoa.to_string(),
             },
             TestStruct {
                 name: "python profile".to_string(),
                 profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_python.json"),
-                want: Platform::Python,
+                want: Platform::Python.to_string(),
             },
             TestStruct {
                 name: "android profile".to_string(),
                 profile_json: include_bytes!("../tests/fixtures/android/chunk/valid.json"),
-                want: Platform::Android,
+                want: Platform::Android.to_string(),
             },
         ];
 
@@ -381,7 +390,7 @@ mod tests {
             name: String,
             platform: &'a str,
             profile_json: &'static [u8],
-            want: Platform,
+            want: String,
         }
 
         let test_cases = [
@@ -389,19 +398,19 @@ mod tests {
                 name: "cocoa profile".to_string(),
                 platform: "cocoa",
                 profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_cocoa.json"),
-                want: Platform::Cocoa,
+                want: Platform::Cocoa.to_string(),
             },
             TestStruct {
                 name: "python profile".to_string(),
                 platform: "python",
                 profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_python.json"),
-                want: Platform::Python,
+                want: Platform::Python.to_string(),
             },
             TestStruct {
                 name: "android profile".to_string(),
                 platform: "android",
                 profile_json: include_bytes!("../tests/fixtures/android/chunk/valid.json"),
-                want: Platform::Android,
+                want: Platform::Android.to_string(),
             },
         ];
 
@@ -446,7 +455,7 @@ mod tests {
             let decompressed_profile =
                 ProfileChunk::decompress(compressed_profile_bytes.as_slice()).unwrap();
 
-            let equals = if profile.get_platform() == Platform::Android {
+            let equals = if profile.get_platform() == Platform::Android.to_string() {
                 let original_sample = profile
                     .profile
                     .as_any()

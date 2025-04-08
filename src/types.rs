@@ -55,6 +55,22 @@ pub enum Platform {
     None,
 }
 
+impl fmt::Display for Platform {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Platform::Android => write!(f, "android"),
+            Platform::Cocoa => write!(f, "cocoa"),
+            Platform::Java => write!(f, "java"),
+            Platform::JavaScript => write!(f, "javascript"),
+            Platform::Node => write!(f, "node"),
+            Platform::Php => write!(f, "php"),
+            Platform::Python => write!(f, "python"),
+            Platform::Rust => write!(f, "rust"),
+            Platform::None => write!(f, "none"),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ClientSDK {
     pub name: String,
