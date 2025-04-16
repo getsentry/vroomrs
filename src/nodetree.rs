@@ -132,9 +132,10 @@ impl Node {
 
         // determine the amount of time spent in application vs system functions in the children
         for child in &self.children {
-            let (application_duration_ns, system_duration_ns) = child
-                .borrow()
-                .collect_functions(results, thread_id, node_depth, min_depth);
+            let (application_duration_ns, system_duration_ns) =
+                child
+                    .borrow()
+                    .collect_functions(results, thread_id, node_depth + 1, min_depth);
             children_application_duration_ns += application_duration_ns;
             children_system_duration_ns += system_duration_ns;
         }

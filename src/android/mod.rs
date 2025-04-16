@@ -185,7 +185,7 @@ struct EventMonotonic {
 struct EventTime {
     #[serde(skip_serializing_if = "Option::is_none")]
     global: Option<Duration>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", rename = "Monotonic")]
     monotonic: Option<EventMonotonic>,
 }
 
