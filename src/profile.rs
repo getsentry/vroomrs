@@ -141,7 +141,7 @@ impl ProfileChunk {
         self.profile.get_project_id()
     }
 
-    /// Returns the release.
+    /// Returns the received timestamp.
     ///
     /// Returns:
     ///     float
