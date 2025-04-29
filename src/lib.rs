@@ -1,7 +1,6 @@
 use nodetree::CallTreeFunction;
 use profile::ProfileChunk;
 use pyo3::prelude::*;
-use types::Platform;
 
 mod android;
 mod debug_images;
