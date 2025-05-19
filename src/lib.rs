@@ -1,12 +1,12 @@
 use nodetree::CallTreeFunction;
-use profile::ProfileChunk;
+use profile_chunk::ProfileChunk;
 use pyo3::prelude::*;
 
 mod android;
 mod debug_images;
 mod frame;
 mod nodetree;
-mod profile;
+mod profile_chunk;
 mod sample;
 mod types;
 

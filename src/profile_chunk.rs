@@ -342,7 +342,7 @@ fn decompress(source: &[u8]) -> Result<Vec<u8>, std::io::Error> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        android::chunk::AndroidChunk, profile::ProfileChunk, sample::v2::SampleChunk,
+        android::chunk::AndroidChunk, profile_chunk::ProfileChunk, sample::v2::SampleChunk,
         types::Platform,
     };
 
