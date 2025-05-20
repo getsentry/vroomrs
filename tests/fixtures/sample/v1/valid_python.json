@@ -1,0 +1,181 @@
+{
+    "client_sdk": {
+        "name": "sentry.python.django",
+        "version": "2.27.0"
+    },
+    "debug_meta": {},
+    "device": {
+        "architecture": "x86_64",
+        "classification": "",
+        "locale": "",
+        "manufacturer": "",
+        "model": ""
+    },
+    "environment": "de",
+    "event_id": "ba06cbd52dfe4d5699958cbe1cb0acc8",
+    "os": {
+        "build_number": "",
+        "name": "Linux",
+        "version": "6.6.72+"
+    },
+    "options": null,
+    "organization_id": 1,
+    "platform": "python",
+    "project_id": 1,
+    "received": 1747725357,
+    "release": "backend@0123ab0f39d0c4b61e34fb5ecfb911e7b0b0412c",
+    "retention_days": 90,
+    "runtime": {
+        "name": "CPython",
+        "version": "3.13.1"
+    },
+    "sampled": true,
+    "timestamp": "2025-05-19T13:47:00.482107Z",
+    "profile": {
+        "frames": [
+            {
+                "data": {},
+                "filename": "concurrent/futures/thread.py",
+                "function": "_worker",
+                "in_app": false,
+                "lineno": 90,
+                "module": "concurrent.futures.thread",
+                "abs_path": "/usr/local/lib/python3.13/concurrent/futures/thread.py",
+                "platform": "python"
+            },
+            {
+                "data": {},
+                "filename": "threading.py",
+                "function": "Thread.run",
+                "in_app": false,
+                "lineno": 992,
+                "module": "threading",
+                "abs_path": "/usr/local/lib/python3.13/threading.py",
+                "platform": "python"
+            },
+            {
+                "data": {},
+                "filename": "sentry_sdk/integrations/threading.py",
+                "function": "_wrap_run.\u003clocals\u003e.run.\u003clocals\u003e._run_old_run_func",
+                "in_app": false,
+                "lineno": 123,
+                "module": "sentry_sdk.integrations.threading",
+                "abs_path": "/.venv/lib/python3.13/site-packages/sentry_sdk/integrations/threading.py",
+                "platform": "python"
+            },
+            {
+                "data": {},
+                "filename": "sentry_sdk/integrations/threading.py",
+                "function": "_wrap_run.\u003clocals\u003e.run",
+                "in_app": false,
+                "lineno": 130,
+                "module": "sentry_sdk.integrations.threading",
+                "abs_path": "/.venv/lib/python3.13/site-packages/sentry_sdk/integrations/threading.py",
+                "platform": "python"
+            }
+        ],
+        "queue_metadata": null,
+        "samples": [
+            {
+                "elapsed_since_start_ns": 1791821,
+                "stack_id": 0,
+                "thread_id": 133875472791232
+            },
+            {
+                "elapsed_since_start_ns": 1791821,
+                "stack_id": 0,
+                "thread_id": 133875895346880
+            },
+            {
+                "elapsed_since_start_ns": 1791821,
+                "stack_id": 0,
+                "thread_id": 133875903739584
+            },
+            {
+                "elapsed_since_start_ns": 1791821,
+                "stack_id": 0,
+                "thread_id": 133875912132288
+            }
+        ],
+        "stacks": [
+            [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+            ],
+            [
+                6,
+                7,
+                1,
+                2,
+                3,
+                4,
+                5
+            ],
+            [
+                8,
+                9,
+                10,
+                1,
+                2,
+                3,
+                4,
+                5
+            ]
+        ],
+        "thread_metadata": {
+            "133875472791232": {
+                "name": "ThreadPoolExecutor-2_1"
+            },
+            "133875895346880": {
+                "name": "ThreadPoolExecutor-1_9"
+            },
+            "133875903739584": {
+                "name": "ThreadPoolExecutor-1_8"
+            }
+        }
+    },
+    "transaction": {
+        "active_thread_id": 133877343446720,
+        "id": "94ca1318dfba4b3991e5207ef0f2855f",
+        "name": "/api/0/organizations/{organization_id_or_slug}/events/",
+        "trace_id": "b6162ea338494ae8b954ada6504beb38",
+        "segment_id": "9d65e7f26086b032"
+    },
+    "transaction_metadata": {
+        "environment": "de",
+        "http.method": "GET",
+        "release": "backend@0123ab0f39d0c4b61e34fb5ecfb911e7b0b0412c",
+        "transaction": "/api/0/organizations/{organization_id_or_slug}/events/",
+        "transaction.end": "2025-05-19T13:47:00.802803039Z",
+        "transaction.op": "http.server",
+        "transaction.start": "2025-05-19T13:47:00.482106924Z",
+        "transaction.status": "ok",
+        "segment_id": "9d65e7f26086b032"
+    },
+    "transaction_tags": {
+        "http.referer": "https://telemetry-experience.sentry.io/",
+        "http.status_code": "200",
+        "organization": "4509089275772928",
+        "organization.slug": "telemetry-experience",
+        "performance.metrics_enhanced": "False",
+        "query.dataset": "spans",
+        "query.num_projects": "1",
+        "query.num_projects.grouped": "1",
+        "query.per_page": "10",
+        "query.per_page.grouped": "\u003c50",
+        "query.period": "604800",
+        "query.period.grouped": "\u003c=7d",
+        "query.sampling_mode": "NORMAL",
+        "query.storage_meta.tier": "0",
+        "server_name": "getsentry-web-default-profiling-production-canary-79fdb8d4wkgh6",
+        "spans_over_limit": "False",
+        "subscription.is-enterprise": "0",
+        "subscription.is-paid": "1",
+        "subscription.plan": "am3_team"
+    },
+    "version": "1"
+}

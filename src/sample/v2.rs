@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::hash::Hasher;
 use std::rc::Rc;
 
-use super::SampleError;
+use super::{SampleError, ThreadMetadata};
 use crate::frame::Frame;
 use crate::nodetree::Node;
 use crate::types::{CallTreeError, CallTreesStr, ChunkInterface};
@@ -46,14 +46,6 @@ pub struct SampleChunk {
     // `measurements` contains CPU/memory measurements we do during the capture of the chunk.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub measurements: Option<serde_json::Value>,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct ThreadMetadata {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    priority: Option<i32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]

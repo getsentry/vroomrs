@@ -9,6 +9,10 @@ name = "vroomrs"
 crate-type = ["cdylib"]
 
 [dependencies]
+chrono = {version = "0.4.41", default-features = false, features = [
+  "std",
+  "serde",
+] }
 pyo3 = "0.24.1"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
