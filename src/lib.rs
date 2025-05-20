@@ -51,12 +51,6 @@ fn profile_chunk_from_json_str(profile: &str, platform: Option<&str>) -> PyResul
 #[pyfunction]
 #[pyo3(signature = (profile))]
 fn profile_from_json_str(profile: &str) -> PyResult<Profile> {
-    // match platform {
-    //     Some(platform) => ProfileChunk::from_json_vec_and_platform(profile.as_bytes(), platform)
-    //         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
-    //     None => ProfileChunk::from_json_vec(profile.as_bytes())
-    //         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
-    // }
     Profile::from_json_vec(profile.as_bytes())
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
 }
