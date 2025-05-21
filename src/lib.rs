@@ -1,5 +1,6 @@
 use nodetree::CallTreeFunction;
-use profile::ProfileChunk;
+use profile::Profile;
+use profile_chunk::ProfileChunk;
 use pyo3::prelude::*;
 
 mod android;
@@ -7,6 +8,7 @@ mod debug_images;
 mod frame;
 mod nodetree;
 mod profile;
+mod profile_chunk;
 mod sample;
 mod types;
 
@@ -46,6 +48,13 @@ fn profile_chunk_from_json_str(profile: &str, platform: Option<&str>) -> PyResul
     }
 }
 
+#[pyfunction]
+#[pyo3(signature = (profile))]
+fn profile_from_json_str(profile: &str) -> PyResult<Profile> {
+    Profile::from_json_vec(profile.as_bytes())
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+}
+
 /// Returns a `ProfileChunk` instance from a lz4 encoded profile.
 ///
 /// Arguments
@@ -81,5 +90,6 @@ fn vroomrs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<CallTreeFunction>()?;
     m.add_function(wrap_pyfunction!(profile_chunk_from_json_str, m)?)?;
     m.add_function(wrap_pyfunction!(decompress_profile_chunk, m)?)?;
+    m.add_function(wrap_pyfunction!(profile_from_json_str, m)?)?;
     Ok(())
 }

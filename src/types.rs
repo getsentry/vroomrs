@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+
 use pyo3::exceptions::PyValueError;
 use pyo3::{pyclass, PyErr};
 use serde::{Deserialize, Serialize};
@@ -157,3 +159,57 @@ pub trait ChunkInterface {
 
     fn as_any(&self) -> &dyn Any;
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
+pub struct Transaction {
+    active_thread_id: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    duration_ns: Option<u64>,
+    id: String,
+    name: String,
+    trace_id: String,
+    segment_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct TransactionMetadata {
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "app.identifier"
+    )]
+    app_identifier: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    dist: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    environment: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "http.method"
+    )]
+    http_method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    release: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    transaction: Option<String>,
+    #[serde(rename = "transaction.end")]
+    transaction_end: DateTime<Utc>,
+    #[serde(rename = "transaction.start")]
+    transaction_start: DateTime<Utc>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "transaction.op"
+    )]
+    transaction_op: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "transaction.status"
+    )]
+    transaction_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    segment_id: Option<String>,
+}
+pub trait ProfileInterface {}

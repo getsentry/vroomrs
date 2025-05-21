@@ -1,0 +1,492 @@
+{
+    "client_sdk": {
+        "name": "sentry.cocoa",
+        "version": "8.51.0"
+    },
+    "debug_meta": {
+        "images": [
+            {
+                "code_file": "/Users/runner/Library/Developer/CoreSimulator/Devices/1FFD46C1-E610-4708-A4FB-F98F0C844C00/data/Containers/Bundle/Application/13E59875-810F-4075-AC64-14486F0B4F6F/iOS-Swift.app/iOS-Swift",
+                "debug_id": "f156cb0e-f47a-3103-a137-bf8d616e12a1",
+                "debug_status": "unused",
+                "features": {
+                    "has_debug_info": false,
+                    "has_sources": false,
+                    "has_symbols": false,
+                    "has_unwind_info": false
+                },
+                "image_addr": "0x102dc8000",
+                "image_size": 16384,
+                "image_vmaddr": "0x100000000",
+                "type": "macho"
+            },
+            {
+                "arch": "arm64",
+                "code_file": "/usr/lib/system/libsystem_platform.dylib",
+                "debug_id": "98803d0c-942b-350b-baf1-4879fd637409",
+                "debug_status": "found",
+                "features": {
+                    "has_debug_info": false,
+                    "has_sources": false,
+                    "has_symbols": true,
+                    "has_unwind_info": true
+                },
+                "image_addr": "0x102de0000",
+                "image_size": 32768,
+                "type": "macho"
+            },
+            {
+                "arch": "arm64",
+                "code_file": "/usr/lib/system/libsystem_kernel.dylib",
+                "debug_id": "02dd445e-88c2-3ac8-979a-cf2b39185f71",
+                "debug_status": "found",
+                "features": {
+                    "has_debug_info": false,
+                    "has_sources": false,
+                    "has_symbols": true,
+                    "has_unwind_info": true
+                },
+                "image_addr": "0x102f80000",
+                "image_size": 245760,
+                "type": "macho"
+            },
+            {
+                "arch": "arm64",
+                "code_file": "/usr/lib/system/libsystem_pthread.dylib",
+                "debug_id": "e4d4a6eb-1bf6-3f43-a21d-d042f2771dc4",
+                "debug_status": "found",
+                "features": {
+                    "has_debug_info": false,
+                    "has_sources": false,
+                    "has_symbols": true,
+                    "has_unwind_info": true
+                },
+                "image_addr": "0x102fec000",
+                "image_size": 65536,
+                "type": "macho"
+            },
+            {
+                "code_file": "/Library/Developer/CoreSimulator/Volumes/iOS_21F79/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 17.5.simruntime/Contents/Resources/RuntimeRoot/usr/lib/libobjc-trampolines.dylib",
+                "debug_id": "c6ef2cc0-8ca9-3a69-a525-91bec719ddfc",
+                "debug_status": "unused",
+                "features": {
+                    "has_debug_info": false,
+                    "has_sources": false,
+                    "has_symbols": false,
+                    "has_unwind_info": false
+                },
+                "image_addr": "0x10311c000",
+                "image_size": 49152,
+                "type": "macho"
+            }
+        ]
+    },
+    "device": {
+        "architecture": "arm64e",
+        "classification": "high",
+        "locale": "en_US",
+        "manufacturer": "Apple",
+        "model": "iPhone16,1"
+    },
+    "environment": "simulator",
+    "event_id": "7621eb0005654725b30eb063406a0e16",
+    "measurements": {
+        "cpu_energy_usage": {
+            "unit": "nanojoule",
+            "values": [
+                {
+                    "elapsed_since_start_ns": 350203333,
+                    "value": 2302412
+                },
+                {
+                    "elapsed_since_start_ns": 421402708,
+                    "value": 1523192
+                },
+                {
+                    "elapsed_since_start_ns": 530712458,
+                    "value": 2499779
+                },
+                {
+                    "elapsed_since_start_ns": 625714417,
+                    "value": 2324960
+                },
+                {
+                    "elapsed_since_start_ns": 732791042,
+                    "value": 2627087
+                },
+                {
+                    "elapsed_since_start_ns": 833298083,
+                    "value": 2447555
+                },
+                {
+                    "elapsed_since_start_ns": 918256750,
+                    "value": 2070586
+                },
+                {
+                    "elapsed_since_start_ns": 1031158500,
+                    "value": 2757938
+                },
+                {
+                    "elapsed_since_start_ns": 1118730125,
+                    "value": 2138419
+                },
+                {
+                    "elapsed_since_start_ns": 1221099667,
+                    "value": 2712393
+                },
+                {
+                    "elapsed_since_start_ns": 1327475167,
+                    "value": 2710580
+                },
+                {
+                    "elapsed_since_start_ns": 1407320958,
+                    "value": 3178190
+                },
+                {
+                    "elapsed_since_start_ns": 1487562833,
+                    "value": 2523515
+                }
+            ]
+        },
+        "cpu_usage": {
+            "unit": "percent",
+            "values": [
+                {
+                    "elapsed_since_start_ns": 256065292,
+                    "value": 161
+                },
+                {
+                    "elapsed_since_start_ns": 350191833,
+                    "value": 226.66665649414065
+                },
+                {
+                    "elapsed_since_start_ns": 421394042,
+                    "value": 262
+                },
+                {
+                    "elapsed_since_start_ns": 530702375,
+                    "value": 262
+                },
+                {
+                    "elapsed_since_start_ns": 625703208,
+                    "value": 280.66668701171875
+                },
+                {
+                    "elapsed_since_start_ns": 732780583,
+                    "value": 307.3333435058594
+                },
+                {
+                    "elapsed_since_start_ns": 833283250,
+                    "value": 315
+                },
+                {
+                    "elapsed_since_start_ns": 918245083,
+                    "value": 327
+                },
+                {
+                    "elapsed_since_start_ns": 1031151292,
+                    "value": 327
+                },
+                {
+                    "elapsed_since_start_ns": 1118721958,
+                    "value": 333.66668701171875
+                },
+                {
+                    "elapsed_since_start_ns": 1221084000,
+                    "value": 337
+                },
+                {
+                    "elapsed_since_start_ns": 1327463417,
+                    "value": 337.0000305175781
+                },
+                {
+                    "elapsed_since_start_ns": 1407309833,
+                    "value": 393.00003051757807
+                },
+                {
+                    "elapsed_since_start_ns": 1487552250,
+                    "value": 393.00003051757807
+                }
+            ]
+        },
+        "memory_footprint": {
+            "unit": "byte",
+            "values": [
+                {
+                    "elapsed_since_start_ns": 256078333,
+                    "value": 15963584
+                },
+                {
+                    "elapsed_since_start_ns": 350199417,
+                    "value": 17470912
+                },
+                {
+                    "elapsed_since_start_ns": 421399792,
+                    "value": 18486720
+                },
+                {
+                    "elapsed_since_start_ns": 530709542,
+                    "value": 20092352
+                },
+                {
+                    "elapsed_since_start_ns": 625711583,
+                    "value": 21632448
+                },
+                {
+                    "elapsed_since_start_ns": 732788208,
+                    "value": 23369152
+                },
+                {
+                    "elapsed_since_start_ns": 833294792,
+                    "value": 24974784
+                },
+                {
+                    "elapsed_since_start_ns": 918253833,
+                    "value": 26383872
+                },
+                {
+                    "elapsed_since_start_ns": 1031155917,
+                    "value": 28235200
+                },
+                {
+                    "elapsed_since_start_ns": 1118727125,
+                    "value": 29693376
+                },
+                {
+                    "elapsed_since_start_ns": 1221094458,
+                    "value": 12130048
+                },
+                {
+                    "elapsed_since_start_ns": 1327469125,
+                    "value": 16963392
+                },
+                {
+                    "elapsed_since_start_ns": 1407317625,
+                    "value": 19060864
+                },
+                {
+                    "elapsed_since_start_ns": 1487559417,
+                    "value": 21289088
+                }
+            ]
+        }
+    },
+    "os": {
+        "build_number": "24E263",
+        "name": "iOS",
+        "version": "17.5"
+    },
+    "options": null,
+    "organization_id": 447951,
+    "platform": "cocoa",
+    "project_id": 5428557,
+    "received": 1747725357,
+    "release": "io.sentry.sample.iOS-Swift@8.51.0+1",
+    "retention_days": 90,
+    "runtime": {
+        "name": "",
+        "version": ""
+    },
+    "sampled": true,
+    "timestamp": "2025-05-20T06:36:46.395Z",
+    "profile": {
+        "frames": [
+            {
+                "data": {},
+                "function": "CFStringCreateMutable",
+                "in_app": false,
+                "instruction_addr": "0x18043318c",
+                "package": "/Library/Developer/CoreSimulator/Volumes/iOS_21F79/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 17.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+                "status": "symbolicated",
+                "sym_addr": "0x180433054",
+                "symbol": "CFStringCreateMutable",
+                "platform": "cocoa"
+            },
+            {
+                "data": {},
+                "function": "-[__NSCFString appendFormat:]",
+                "in_app": false,
+                "instruction_addr": "0x1803e5880",
+                "package": "/Library/Developer/CoreSimulator/Volumes/iOS_21F79/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 17.5.simruntime/Contents/Resources/RuntimeRoot/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation",
+                "status": "symbolicated",
+                "sym_addr": "0x1803e581c",
+                "symbol": "-[__NSCFString appendFormat:]",
+                "platform": "cocoa"
+            },
+            {
+                "data": {},
+                "function": "+[NSObject(SentryAppSetup) sentry_slowLoadWork]",
+                "in_app": true,
+                "instruction_addr": "0x1037ce128",
+                "package": "/Users/runner/Library/Developer/CoreSimulator/Devices/1FFD46C1-E610-4708-A4FB-F98F0C844C00/data/Containers/Bundle/Application/13E59875-810F-4075-AC64-14486F0B4F6F/iOS-Swift.app/iOS-Swift.debug.dylib",
+                "status": "missing",
+                "symbol": "+[NSObject(SentryAppSetup) sentry_slowLoadWork]",
+                "platform": "cocoa"
+            },
+            {
+                "data": {},
+                "function": "+[NSObject(SentryAppSetup) load]",
+                "in_app": true,
+                "instruction_addr": "0x1037ce058",
+                "package": "/Users/runner/Library/Developer/CoreSimulator/Devices/1FFD46C1-E610-4708-A4FB-F98F0C844C00/data/Containers/Bundle/Application/13E59875-810F-4075-AC64-14486F0B4F6F/iOS-Swift.app/iOS-Swift.debug.dylib",
+                "status": "missing",
+                "symbol": "+[NSObject(SentryAppSetup) load]",
+                "platform": "cocoa"
+            },
+            {
+                "data": {},
+                "function": "load_images",
+                "in_app": false,
+                "instruction_addr": "0x18006efb4",
+                "package": "/Library/Developer/CoreSimulator/Volumes/iOS_21F79/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 17.5.simruntime/Contents/Resources/RuntimeRoot/usr/lib/libobjc.A.dylib",
+                "status": "symbolicated",
+                "sym_addr": "0x18006ec58",
+                "symbol": "load_images",
+                "platform": "cocoa"
+            },
+            {
+                "data": {},
+                "function": "dyld4::RuntimeState::notifyObjCInit(dyld4::Loader const*)",
+                "in_app": false,
+                "instruction_addr": "0x10306bd34",
+                "status": "unknown_image",
+                "symbol": "_ZN5dyld412RuntimeState14notifyObjCInitEPKNS_6LoaderE",
+                "platform": "cocoa"
+            },
+            {
+                "data": {},
+                "function": "dyld4::Loader::runInitializersBottomUp(dyld4::RuntimeState\u0026, dyld3::Array\u003cdyld4::Loader const*\u003e\u0026) const",
+                "in_app": false,
+                "instruction_addr": "0x10307138c",
+                "status": "unknown_image",
+                "symbol": "_ZNK5dyld46Loader23runInitializersBottomUpERNS_12RuntimeStateERN5dyld35ArrayIPKS0_EE",
+                "platform": "cocoa"
+            }
+
+        ],
+        "queue_metadata": null,
+        "samples": [
+            {
+                "elapsed_since_start_ns": 97586875,
+                "stack_id": 0,
+                "thread_id": 259
+            },
+            {
+                "elapsed_since_start_ns": 109500875,
+                "stack_id": 2,
+                "thread_id": 259
+            },
+            {
+                "elapsed_since_start_ns": 121515917,
+                "stack_id": 3,
+                "thread_id": 259
+            },
+            {
+                "elapsed_since_start_ns": 133395875,
+                "stack_id": 4,
+                "thread_id": 259
+            }
+        ],
+        "stacks": [
+            [
+                510,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
+            ],
+            [],
+            [
+                511,
+                19,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
+            ],
+            [
+                512,
+                21,
+                22,
+                23,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
+            ]
+        ],
+        "thread_metadata": {
+            "16131": {
+                "priority": 31
+            },
+            "259": {
+                "name": "main",
+                "priority": 31
+            },
+            "5635": {
+                "priority": 31
+            },
+            "8747": {
+                "priority": 31
+            }
+        }
+    },
+    "transaction": {
+        "active_thread_id": 259,
+        "id": "748874cc7cea4178ba4cd3dd9dad3c1b",
+        "name": "launch",
+        "trace_id": "5b4e63e7d65a46faa8438356beedba37",
+        "segment_id": "8be23b3c2acf4233"
+    },
+    "transaction_metadata": {
+        "app.identifier": "io.sentry.sample.iOS-Swift",
+        "dist": "1",
+        "environment": "simulator",
+        "release": "io.sentry.sample.iOS-Swift@8.51.0+1",
+        "transaction": "launch",
+        "transaction.end": "2025-05-20T06:36:47.881627082Z",
+        "transaction.op": "app.lifecycle",
+        "transaction.start": "2025-05-20T06:36:46.394814014Z",
+        "transaction.status": "ok",
+        "segment_id": "8be23b3c2acf4233"
+    },
+    "transaction_tags": {
+        "device.class": "3",
+        "git-branch-name": "main",
+        "git-commit-hash": "e70c3aa-dirty",
+        "language": "swift",
+        "ui-test-name": "-[ProfilingUITests testAppLaunchesWithTraceProfiler]"
+    },
+    "version": "1"
+}
