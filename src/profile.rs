@@ -17,9 +17,9 @@ impl Profile {
         let min_prof: MinimumProfile = serde_json::from_slice(profile)?;
         match min_prof.version {
             None => {
-                let sample: AndroidProfile = serde_json::from_slice(profile)?;
+                let android: AndroidProfile = serde_json::from_slice(profile)?;
                 Ok(Profile {
-                    profile: Box::new(sample),
+                    profile: Box::new(android),
                 })
             }
             Some(_) => {
