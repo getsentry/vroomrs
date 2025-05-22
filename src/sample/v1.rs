@@ -78,34 +78,34 @@ pub struct Profile {
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct SampleProfile {
-    pub client_sdk: Option<ClientSDK>,
+    client_sdk: Option<ClientSDK>,
 
     #[serde(default, skip_serializing_if = "DebugMeta::is_empty")]
-    pub debug_meta: DebugMeta,
+    debug_meta: DebugMeta,
 
     device: Device,
 
-    pub environment: Option<String>,
+    environment: Option<String>,
 
-    pub event_id: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub measurements: Option<HashMap<String, Measurement>>,
-
-    pub os: OSMetadata,
-
-    pub organization_id: u64,
-
-    pub platform: Platform,
-
-    pub project_id: u64,
-
-    pub received: f64,
+    event_id: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub release: Option<String>,
+    measurements: Option<HashMap<String, Measurement>>,
 
-    pub retention_days: i32,
+    os: OSMetadata,
+
+    organization_id: u64,
+
+    platform: Platform,
+
+    project_id: u64,
+
+    received: f64,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    release: Option<String>,
+
+    retention_days: i32,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     runtime: Option<RuntimeMetadata>,

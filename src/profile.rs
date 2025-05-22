@@ -1,7 +1,6 @@
 use pyo3::pyclass;
-use serde::de::Error;
 
-use crate::{sample::v1::SampleProfile, types::ProfileInterface};
+use crate::{android::profile::AndroidProfile, sample::v1::SampleProfile, types::ProfileInterface};
 
 #[pyclass]
 pub struct Profile {
@@ -18,11 +17,10 @@ impl Profile {
         let min_prof: MinimumProfile = serde_json::from_slice(profile)?;
         match min_prof.version {
             None => {
-                // todo: here instead of throwing an error we'll add support for
-                // android profiles.
-                Err(serde_json::Error::custom(
-                    "todo: add android profile support",
-                ))
+                let sample: AndroidProfile = serde_json::from_slice(profile)?;
+                Ok(Profile {
+                    profile: Box::new(sample),
+                })
             }
             Some(_) => {
                 let sample: SampleProfile = serde_json::from_slice(profile)?;
