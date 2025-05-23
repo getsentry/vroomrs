@@ -85,7 +85,11 @@ pub struct AndroidProfile {
     version_name: String,
 }
 
-impl ProfileInterface for AndroidProfile {}
+impl ProfileInterface for AndroidProfile {
+    fn get_platform(&self) -> Platform {
+        self.platform
+    }
+}
 
 #[cfg(test)]
 mod tests {
