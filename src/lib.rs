@@ -49,10 +49,14 @@ fn profile_chunk_from_json_str(profile: &str, platform: Option<&str>) -> PyResul
 }
 
 #[pyfunction]
-#[pyo3(signature = (profile))]
-fn profile_from_json_str(profile: &str) -> PyResult<Profile> {
-    Profile::from_json_vec(profile.as_bytes())
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+#[pyo3(signature = (profile, platform=None))]
+fn profile_from_json_str(profile: &str, platform: Option<&str>) -> PyResult<Profile> {
+    match platform {
+        Some(platform) => Profile::from_json_vec_and_platform(profile.as_bytes(), platform)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+        None => Profile::from_json_vec(profile.as_bytes())
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
+    }
 }
 
 /// Returns a `ProfileChunk` instance from a lz4 encoded profile.

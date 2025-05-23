@@ -123,7 +123,11 @@ pub struct SampleProfile {
     version: String,
 }
 
-impl ProfileInterface for SampleProfile {}
+impl ProfileInterface for SampleProfile {
+    fn get_platform(&self) -> Platform {
+        self.platform
+    }
+}
 
 #[cfg(test)]
 mod tests {

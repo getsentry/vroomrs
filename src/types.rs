@@ -212,4 +212,6 @@ pub struct TransactionMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     segment_id: Option<String>,
 }
-pub trait ProfileInterface {}
+pub trait ProfileInterface {
+    fn get_platform(&self) -> Platform;
+}
