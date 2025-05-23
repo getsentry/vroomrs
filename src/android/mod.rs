@@ -1,4 +1,5 @@
 pub mod chunk;
+pub mod profile;
 
 use std::borrow::Cow;
 use std::cell::RefCell;

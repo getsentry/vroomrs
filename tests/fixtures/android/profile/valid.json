@@ -1,0 +1,216 @@
+{
+    "android_api_level": 29,
+    "client_sdk": {
+        "name": "sentry.java.android",
+        "version": "8.11.1"
+    },
+    "debug_meta": {
+        "images": [
+            {
+                "type": "proguard",
+                "uuid": "dedb1ca5-ecee-3c2f-9f78-831de4c87cbf"
+            },
+            {
+                "type": "proguard",
+                "uuid": "dedb1ca5-ecee-3c2f-9f78-831de4c87cbf"
+            }
+        ]
+    },
+    "device_classification": "",
+    "device_locale": "en_US",
+    "device_manufacturer": "Google",
+    "device_model": "Android SDK built for x86_64",
+    "device_os_name": "android",
+    "device_os_version": "10",
+    "duration_ns": 12968159000,
+    "environment": "production",
+    "measurements": {
+        "cpu_usage": {
+            "unit": "percent",
+            "values": [
+                {
+                    "elapsed_since_start_ns": 564384841,
+                    "value": 0.07208434217961245
+                },
+                {
+                    "elapsed_since_start_ns": 664384841,
+                    "value": 27.633947546888756
+                },
+                {
+                    "elapsed_since_start_ns": 763384841,
+                    "value": 27.651505641073054
+                }
+            ]
+        },
+        "memory_footprint": {
+            "unit": "byte",
+            "values": [
+                {
+                    "elapsed_since_start_ns": 564384841,
+                    "value": 8277792
+                },
+                {
+                    "elapsed_since_start_ns": 663384841,
+                    "value": 8365360
+                },
+                {
+                    "elapsed_since_start_ns": 763384841,
+                    "value": 8785520
+                }
+            ]
+        }
+    },
+    "organization_id": 11111,
+    "platform": "android",
+    "profile_id": "0db26a3adf5342c7943c5f35e8b098ad",
+    "project_id": 4508968118321152,
+    "received": 1747725357,
+    "retention_days": 90,
+    "sampled": true,
+    "timestamp": "2025-05-22T04:29:33.197Z",
+    "trace_id": "ff1ace112ec14405ac7eccea643be482",
+    "transaction_id": "3f88ed789df74488b3ca3e4bd55e66fe",
+    "transaction_metadata": {
+        "app.identifier": "com.example.vu.android",
+        "dist": "2505151",
+        "environment": "production",
+        "release": "com.example.vu.android@25.05.15.1+2505151",
+        "transaction": "MainActivity",
+        "transaction.end": "2025-05-22T04:29:46.163000106Z",
+        "transaction.op": "ui.load",
+        "transaction.start": "2025-05-22T04:29:33.096999883Z",
+        "transaction.status": "unknown",
+        "segment_id": "0ab3ea823a5c4b4d"
+    },
+    "transaction_name": "MainActivity",
+    "transaction_tags": {
+        "applicationName": "Android",
+        "customerType": "enterprise",
+        "isSideLoaded": "true",
+        "se": "tda",
+        "versionName": "25.05.15.1"
+    },
+    "version_code": "",
+    "version_name": "com.example.vu.android@25.05.15.1+2505151",
+    "profile": {
+        "clock": "Dual",
+        "events": [
+            {
+                "action": "Enter",
+                "thread_id": 5515,
+                "time": {
+                    "global": {},
+                    "Monotonic": {
+                        "wall": {
+                            "nanos": 85901000
+                        },
+                        "cpu": {}
+                    }
+                }
+            },
+            {
+                "action": "Enter",
+                "thread_id": 5515,
+                "method_id": 1,
+                "time": {
+                    "global": {},
+                    "Monotonic": {
+                        "wall": {
+                            "nanos": 85901000
+                        },
+                        "cpu": {}
+                    }
+                }
+            },
+            {
+                "action": "Exit",
+                "thread_id": 5515,
+                "method_id": 112,
+                "time": {
+                    "global": {},
+                    "Monotonic": {
+                        "wall": {
+                            "secs": 12,
+                            "nanos": 957255000
+                        },
+                        "cpu": {
+                            "secs": 6,
+                            "nanos": 506945000
+                        }
+                    }
+                }
+            },
+            {
+                "action": "Exit",
+                "thread_id": 5515,
+                "method_id": 111,
+                "time": {
+                    "global": {},
+                    "Monotonic": {
+                        "wall": {
+                            "secs": 12,
+                            "nanos": 957255000
+                        },
+                        "cpu": {
+                            "secs": 6,
+                            "nanos": 506945000
+                        }
+                    }
+                }
+            }
+        ],
+        "methods": [
+            {
+                "class_name": "java.lang.ClassLoader",
+                "data": {
+                    "deobfuscation_status": "deobfuscated"
+                },
+                "id": 94,
+                "name": "findLoadedClass",
+                "signature": "(java.lang.String): java.lang.Class",
+                "source_file": "ClassLoader.java",
+                "in_app": false,
+                "platform": "android"
+            },
+            {
+                "class_name": "java.lang.ClassLoader",
+                "data": {
+                    "deobfuscation_status": "deobfuscated"
+                },
+                "id": 92,
+                "name": "loadClass",
+                "signature": "(java.lang.String): java.lang.Class",
+                "source_file": "ClassLoader.java",
+                "in_app": false,
+                "platform": "android"
+            },
+            {
+                "class_name": "java.lang.ClassLoader",
+                "data": {
+                    "deobfuscation_status": "deobfuscated"
+                },
+                "id": 93,
+                "name": "loadClass",
+                "signature": "(java.lang.String, boolean): java.lang.Class",
+                "source_file": "ClassLoader.java",
+                "in_app": false,
+                "platform": "android"
+            }
+        ],
+        "start_time": 30653553000,
+        "threads": [
+            {
+                "id": 5523,
+                "name": "Runtime worker thread 0"
+            },
+            {
+                "id": 5524,
+                "name": "Runtime worker thread 1"
+            },
+            {
+                "id": 5525,
+                "name": "Runtime worker thread 2"
+            }
+        ]
+    }
+}
