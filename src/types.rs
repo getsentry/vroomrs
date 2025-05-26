@@ -213,5 +213,10 @@ pub struct TransactionMetadata {
     segment_id: Option<String>,
 }
 pub trait ProfileInterface {
+    /// Serialize the given data structure as a JSON byte vector.
+    fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;
+
     fn get_platform(&self) -> Platform;
+
+    fn as_any(&self) -> &dyn Any;
 }

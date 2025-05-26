@@ -89,6 +89,15 @@ impl ProfileInterface for AndroidProfile {
     fn get_platform(&self) -> Platform {
         self.platform
     }
+
+    /// Serialize the given data structure as a JSON byte vector.
+    fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error> {
+        serde_json::to_vec(&self)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[cfg(test)]
