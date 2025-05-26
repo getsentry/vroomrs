@@ -1,9 +1,5 @@
-use std::{
-    collections::HashMap,
-    io::{self},
-};
+use std::collections::HashMap;
 
-use lz4::{Decoder, EncoderBuilder};
 use pyo3::{pyclass, pymethods, PyErr, PyResult};
 
 use crate::{
@@ -11,6 +7,7 @@ use crate::{
     nodetree::CallTreeFunction,
     sample::v2::SampleChunk,
     types::{CallTreesStr, ChunkInterface},
+    utils::{compress_lz4, decompress_lz4},
 };
 
 /// This is a :class:`ProfileChunk` class
@@ -64,7 +61,7 @@ impl ProfileChunk {
     }
 
     pub(crate) fn decompress(source: &[u8]) -> Result<Self, Box<dyn std::error::Error>> {
-        let bytes = decompress(source)?;
+        let bytes = decompress_lz4(source)?;
         Self::from_json_vec(bytes.as_ref())
             .map_err(|err| Box::new(err) as Box<dyn std::error::Error>)
     }
@@ -251,7 +248,7 @@ impl ProfileChunk {
             .profile
             .to_json_vec()
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))?;
-        compress(&mut prof.as_slice())
+        compress_lz4(&mut prof.as_slice())
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
     }
 
@@ -316,27 +313,6 @@ impl ProfileChunk {
         functions_list.truncate(max_unique_functions.unwrap_or(functions_list.len()));
         Ok(functions_list)
     }
-}
-
-fn compress(source: &mut &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    let b: Vec<u8> = vec![];
-    let mut encoder = EncoderBuilder::new()
-        .block_checksum(lz4::liblz4::BlockChecksum::NoBlockChecksum)
-        .level(9)
-        .build(b)?;
-    io::copy(source, &mut encoder)?;
-    let (compressed_data, res) = encoder.finish();
-    match res {
-        Ok(_) => Ok(compressed_data),
-        Err(error) => Err(error),
-    }
-}
-
-fn decompress(source: &[u8]) -> Result<Vec<u8>, std::io::Error> {
-    let mut decoder = Decoder::new(source)?;
-    let mut decoded_data: Vec<u8> = vec![];
-    io::copy(&mut decoder, &mut decoded_data)?;
-    Ok(decoded_data)
 }
 
 #[cfg(test)]

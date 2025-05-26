@@ -11,6 +11,7 @@ mod profile;
 mod profile_chunk;
 mod sample;
 mod types;
+mod utils;
 
 const MAX_STACK_DEPTH: u64 = 128;
 
@@ -88,6 +89,12 @@ fn decompress_profile_chunk(profile: &[u8]) -> PyResult<ProfileChunk> {
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
 }
 
+#[pyfunction]
+fn decompress_profile(profile: &[u8]) -> PyResult<Profile> {
+    Profile::decompress(profile)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+}
+
 #[pymodule]
 fn vroomrs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ProfileChunk>()?;
@@ -95,5 +102,6 @@ fn vroomrs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(profile_chunk_from_json_str, m)?)?;
     m.add_function(wrap_pyfunction!(decompress_profile_chunk, m)?)?;
     m.add_function(wrap_pyfunction!(profile_from_json_str, m)?)?;
+    m.add_function(wrap_pyfunction!(decompress_profile, m)?)?;
     Ok(())
 }
