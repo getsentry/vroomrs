@@ -213,10 +213,18 @@ pub struct TransactionMetadata {
     segment_id: Option<String>,
 }
 pub trait ProfileInterface {
+    fn get_environment(&self) -> Option<&str>;
+    fn get_profile_id(&self) -> &str;
+    fn get_organization_id(&self) -> u64;
+    fn get_platform(&self) -> Platform;
+    fn get_project_id(&self) -> u64;
+    fn get_received(&self) -> f64;
+    fn get_release(&self) -> Option<&str>;
+    fn get_retention_days(&self) -> i32;
+    fn get_timestamp(&self) -> f64;
+
     /// Serialize the given data structure as a JSON byte vector.
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;
-
-    fn get_platform(&self) -> Platform;
 
     fn as_any(&self) -> &dyn Any;
 }

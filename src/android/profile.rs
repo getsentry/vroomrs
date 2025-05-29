@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     sample::v1::Measurement,
-    types::{self, ClientSDK, DebugMeta, Platform, ProfileInterface},
+    types::{ClientSDK, DebugMeta, Platform, ProfileInterface, TransactionMetadata},
 };
 
 use super::Android;
@@ -64,6 +64,8 @@ pub struct AndroidProfile {
 
     received: f64,
 
+    release: Option<String>,
+
     retention_days: i32,
 
     timestamp: DateTime<Utc>,
@@ -73,7 +75,7 @@ pub struct AndroidProfile {
     transaction_id: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    transaction_metadata: Option<types::TransactionMetadata>,
+    transaction_metadata: Option<TransactionMetadata>,
 
     transaction_name: String,
 
@@ -97,6 +99,38 @@ impl ProfileInterface for AndroidProfile {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    fn get_environment(&self) -> Option<&str> {
+        self.environment.as_deref()
+    }
+
+    fn get_profile_id(&self) -> &str {
+        &self.profile_id
+    }
+
+    fn get_organization_id(&self) -> u64 {
+        self.organization_id
+    }
+
+    fn get_project_id(&self) -> u64 {
+        self.project_id
+    }
+
+    fn get_received(&self) -> f64 {
+        self.received
+    }
+
+    fn get_release(&self) -> Option<&str> {
+        self.release.as_deref()
+    }
+
+    fn get_retention_days(&self) -> i32 {
+        self.retention_days
+    }
+
+    fn get_timestamp(&self) -> f64 {
+        self.timestamp.timestamp_micros() as f64 / 1_000_000.0
     }
 }
 
