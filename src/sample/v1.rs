@@ -1,6 +1,6 @@
 use crate::{
     frame::Frame,
-    types::{self, ClientSDK, DebugMeta, Platform, ProfileInterface},
+    types::{ClientSDK, DebugMeta, Platform, ProfileInterface, Transaction, TransactionMetadata},
 };
 
 use super::ThreadMetadata;
@@ -112,10 +112,10 @@ pub struct SampleProfile {
 
     timestamp: DateTime<Utc>,
 
-    transaction: types::Transaction,
+    transaction: Transaction,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    transaction_metadata: Option<types::TransactionMetadata>,
+    transaction_metadata: Option<TransactionMetadata>,
 
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     transaction_tags: HashMap<String, String>,
@@ -135,6 +135,38 @@ impl ProfileInterface for SampleProfile {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    fn get_environment(&self) -> Option<&str> {
+        self.environment.as_deref()
+    }
+
+    fn get_profile_id(&self) -> &str {
+        &self.event_id
+    }
+
+    fn get_organization_id(&self) -> u64 {
+        self.organization_id
+    }
+
+    fn get_project_id(&self) -> u64 {
+        self.project_id
+    }
+
+    fn get_received(&self) -> f64 {
+        self.received
+    }
+
+    fn get_release(&self) -> Option<&str> {
+        self.release.as_deref()
+    }
+
+    fn get_retention_days(&self) -> i32 {
+        self.retention_days
+    }
+
+    fn get_timestamp(&self) -> f64 {
+        self.timestamp.timestamp_micros() as f64 / 1_000_000.0
     }
 }
 
