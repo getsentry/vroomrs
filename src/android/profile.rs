@@ -132,6 +132,10 @@ impl ProfileInterface for AndroidProfile {
     fn get_timestamp(&self) -> f64 {
         self.timestamp.timestamp_micros() as f64 / 1_000_000.0
     }
+
+    fn normalize(&mut self) {
+        todo!()
+    }
 }
 
 #[cfg(test)]

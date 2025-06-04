@@ -230,6 +230,13 @@ impl ProfileInterface for SampleProfile {
     fn get_timestamp(&self) -> f64 {
         self.timestamp.timestamp_micros() as f64 / 1_000_000.0
     }
+
+    fn normalize(&mut self) {
+        if self.platform == Platform::Cocoa {
+            self.trim_cocoa_stacks();
+        }
+        todo!()
+    }
 }
 
 #[cfg(test)]
