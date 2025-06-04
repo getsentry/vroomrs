@@ -48,12 +48,12 @@ pub struct RuntimeMetadata {
     version: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct QueueMetadata {
     label: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Sample {
     stack_id: usize,
     thread_id: u64,
@@ -66,10 +66,11 @@ pub struct Sample {
     sate: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 pub struct Profile {
     frames: Vec<Frame>,
-    queue_metadata: HashMap<String, QueueMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    queue_metadata: Option<HashMap<String, QueueMetadata>>,
     samples: Vec<Sample>,
     stacks: Vec<Vec<usize>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -109,6 +110,8 @@ pub struct SampleProfile {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     runtime: Option<RuntimeMetadata>,
+
+    profile: Profile,
 
     timestamp: DateTime<Utc>,
 
