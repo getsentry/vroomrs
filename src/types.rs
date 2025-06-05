@@ -222,6 +222,7 @@ pub trait ProfileInterface {
     fn get_release(&self) -> Option<&str>;
     fn get_retention_days(&self) -> i32;
     fn get_timestamp(&self) -> f64;
+    fn normalize(&mut self);
 
     /// Serialize the given data structure as a JSON byte vector.
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;

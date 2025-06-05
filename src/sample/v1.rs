@@ -126,6 +126,65 @@ pub struct SampleProfile {
     version: String,
 }
 
+impl SampleProfile {
+    fn trim_cocoa_stacks(&mut self) {
+        let mut mfi: i32 = -1;
+        // Find main frame index in frames
+        for (i, frame) in self.profile.frames.iter().enumerate() {
+            if frame
+                .function
+                .as_ref()
+                .is_some_and(|function| function.as_str() == "main")
+            {
+                mfi = i as i32;
+            }
+        }
+        // We do nothing if we don't find it
+        if mfi == -1 {
+            return;
+        }
+
+        for stack in &mut self.profile.stacks {
+            // Find main frame index in the stack
+            let mut msi = stack.len();
+            // Stop searching after 10 frames, it's not there
+            let mut until: usize = 0;
+            if stack.len() > 10 {
+                until = stack.len() - 10;
+            }
+            for i in (until..stack.len()).rev() {
+                let frame_idx = stack[i];
+                if frame_idx == mfi as usize {
+                    msi = i;
+                    break;
+                }
+            }
+            // Skip the stack if we're already at the end or we didn't find it
+            if msi >= stack.len().saturating_sub(1) {
+                continue;
+            }
+            // Filter unsymbolicated frames after the main frame index
+            let mut ci = msi + 1;
+            let loop_start_bound = ci;
+            for i in loop_start_bound..stack.len() {
+                let frame_index = stack[i];
+                let frame = &self.profile.frames[frame_index];
+                if let Some(symbolicator_status) = frame
+                    .data
+                    .as_ref()
+                    .and_then(|data| data.symbolicator_status.as_ref())
+                {
+                    if symbolicator_status == "symbolicated" {
+                        stack[ci] = frame_index;
+                        ci += 1;
+                    }
+                }
+            }
+            stack.truncate(ci);
+        }
+    }
+}
+
 impl ProfileInterface for SampleProfile {
     fn get_platform(&self) -> Platform {
         self.platform
@@ -171,6 +230,13 @@ impl ProfileInterface for SampleProfile {
     fn get_timestamp(&self) -> f64 {
         self.timestamp.timestamp_micros() as f64 / 1_000_000.0
     }
+
+    fn normalize(&mut self) {
+        if self.platform == Platform::Cocoa {
+            self.trim_cocoa_stacks();
+        }
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -178,7 +244,11 @@ mod tests {
 
     use serde_path_to_error::Error;
 
-    use crate::sample::v1::SampleProfile;
+    use crate::{
+        frame::{self, Data},
+        sample::v1::{Profile, SampleProfile},
+        types::Platform,
+    };
 
     #[test]
     fn test_sample_format_v1_cocoa() {
@@ -194,5 +264,486 @@ mod tests {
         let d = &mut serde_json::Deserializer::from_slice(payload);
         let r: Result<SampleProfile, Error<_>> = serde_path_to_error::deserialize(d);
         assert!(r.is_ok(), "{:#?}", r)
+    }
+
+    #[test]
+    fn test_trim_cocoa_stacks() {
+        struct TestStruct {
+            name: String,
+            profile: SampleProfile,
+            want: SampleProfile,
+        }
+
+        let mut test_cases = [
+            TestStruct {
+                name: "Remove frames leading to main".to_string(),
+                profile: SampleProfile {
+                    profile: Profile {
+                        frames: vec![
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function1".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function2".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("main".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("missing".to_string()),
+                                    ..Default::default()
+                                }),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                        ], // end frames definition
+                        stacks: vec![vec![1, 0, 2, 3, 3]],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                want: SampleProfile {
+                    profile: Profile {
+                        frames: vec![
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function1".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function2".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("main".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("missing".to_string()),
+                                    ..Default::default()
+                                }),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                        ], // end frames definition
+                        stacks: vec![vec![1, 0, 2]],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "Remove frames in-between main and a symbolicated frame".to_string(),
+                profile: SampleProfile {
+                    profile: Profile {
+                        frames: vec![
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function1".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function2".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("main".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("missing".to_string()),
+                                    ..Default::default()
+                                }),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("start_sim".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                        ], // end frames definition
+                        stacks: vec![vec![1, 0, 2, 3, 3, 4]],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                want: SampleProfile {
+                    profile: Profile {
+                        frames: vec![
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function1".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function2".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("main".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("missing".to_string()),
+                                    ..Default::default()
+                                }),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("start_sim".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                        ], // end frames definition
+                        stacks: vec![vec![1, 0, 2, 4]],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "Remove nothing since we couldn't find main".to_string(),
+                profile: SampleProfile {
+                    profile: Profile {
+                        frames: vec![
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function1".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function2".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("missing".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("unsymbolicated_main".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("missing".to_string()),
+                                    ..Default::default()
+                                }),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("start_sim".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                        ], // end frames definition
+                        stacks: vec![vec![1, 0, 2, 3, 3, 4]],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                want: SampleProfile {
+                    profile: Profile {
+                        frames: vec![
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function1".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function2".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("missing".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("unsymbolicated_main".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("missing".to_string()),
+                                    ..Default::default()
+                                }),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("start_sim".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                        ], // end frames definition
+                        stacks: vec![vec![1, 0, 2, 3, 3, 4]],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "Remove frames on many stacks".to_string(),
+                profile: SampleProfile {
+                    profile: Profile {
+                        frames: vec![
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function1".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function2".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("main".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("missing".to_string()),
+                                    ..Default::default()
+                                }),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("start_sim".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                        ], // end frames definition
+                        stacks: vec![
+                            vec![0, 2, 3, 4, 3],
+                            vec![1, 0, 2, 3, 4, 3],
+                            vec![0, 2, 3, 4, 3],
+                            vec![1, 0, 2, 3, 4, 3],
+                            vec![0, 2, 3, 4, 3],
+                        ],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                want: SampleProfile {
+                    profile: Profile {
+                        frames: vec![
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function1".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("function2".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("main".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("missing".to_string()),
+                                    ..Default::default()
+                                }),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                            frame::Frame {
+                                data: Some(Data {
+                                    symbolicator_status: Some("symbolicated".to_string()),
+                                    ..Default::default()
+                                }),
+                                function: Some("start_sim".to_string()),
+                                in_app: Some(true),
+                                platform: Some(Platform::Cocoa),
+                                ..Default::default()
+                            },
+                        ], // end frames definition
+                        stacks: vec![
+                            vec![0, 2, 4],
+                            vec![1, 0, 2, 4],
+                            vec![0, 2, 4],
+                            vec![1, 0, 2, 4],
+                            vec![0, 2, 4],
+                        ],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            },
+        ];
+
+        for test_case in test_cases.as_mut() {
+            test_case.profile.trim_cocoa_stacks();
+            assert_eq!(
+                test_case.profile, test_case.want,
+                "test: {} failed.",
+                test_case.name
+            );
+        }
     }
 }
