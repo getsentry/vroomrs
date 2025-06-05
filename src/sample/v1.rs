@@ -185,6 +185,31 @@ impl SampleProfile {
     }
 }
 
+impl Profile {
+    fn trim_python_stacks(&mut self) {
+        // Find the module frame index in frames
+        let module_frame_index = self.frames.iter().position(|f| {
+            f.file.as_deref() == Some("<string>") && f.function.as_deref() == Some("<module>")
+        });
+
+        // We do nothing if we don't find it
+        let module_frame_index = match module_frame_index {
+            Some(index) => index,
+            None => return,
+        };
+
+        // Iterate through stacks and trim module frame if it's the last frame
+        for stack in &mut self.stacks {
+            if let Some(&last_frame) = stack.last() {
+                if last_frame == module_frame_index {
+                    // Found the module frame so trim it
+                    stack.pop();
+                }
+            }
+        }
+    }
+}
+
 impl ProfileInterface for SampleProfile {
     fn get_platform(&self) -> Platform {
         self.platform
@@ -232,10 +257,16 @@ impl ProfileInterface for SampleProfile {
     }
 
     fn normalize(&mut self) {
+        for frame in &mut self.profile.frames {
+            frame.normalize(self.platform);
+        }
         if self.platform == Platform::Cocoa {
             self.trim_cocoa_stacks();
+        } else if self.platform == Platform::Python {
+            self.profile.trim_python_stacks();
         }
-        todo!()
+
+        // TODO: implement replace_idle_stacks
     }
 }
 
@@ -245,7 +276,7 @@ mod tests {
     use serde_path_to_error::Error;
 
     use crate::{
-        frame::{self, Data},
+        frame::{self, Data, Frame},
         sample::v1::{Profile, SampleProfile},
         types::Platform,
     };
@@ -744,6 +775,78 @@ mod tests {
                 "test: {} failed.",
                 test_case.name
             );
+        }
+    }
+
+    #[test]
+    fn test_trim_python_stacks() {
+        struct TestStruct {
+            name: String,
+            profile: Profile,
+            want: Profile,
+        }
+
+        let mut test_cases = [
+            TestStruct {
+                name: "Remove module frame at the end of a stack".to_string(),
+                profile: Profile {
+                    frames: vec![
+                        Frame {
+                            file: Some("<string>".to_string()),
+                            module: Some("__main__".to_string()),
+                            in_app: Some(true),
+                            line: Some(11),
+                            function: Some("<module>".to_string()),
+                            path: Some("/usr/src/app/<string>".to_string()),
+                            platform: Some(Platform::Python),
+                            ..Default::default()
+                        },
+                        Frame {
+                            file: Some("app/util.py".to_string()),
+                            module: Some("app.util".to_string()),
+                            in_app: Some(true),
+                            line: Some(98),
+                            function: Some("foobar".to_string()),
+                            path: Some("/usr/src/app/util.py".to_string()),
+                            platform: Some(Platform::Python),
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![vec![1, 0]],
+                    ..Default::default()
+                },
+                want: Profile {
+                    frames: vec![
+                        Frame {
+                            file: Some("<string>".to_string()),
+                            module: Some("__main__".to_string()),
+                            in_app: Some(true),
+                            line: Some(11),
+                            function: Some("<module>".to_string()),
+                            path: Some("/usr/src/app/<string>".to_string()),
+                            platform: Some(Platform::Python),
+                            ..Default::default()
+                        },
+                        Frame {
+                            file: Some("app/util.py".to_string()),
+                            module: Some("app.util".to_string()),
+                            in_app: Some(true),
+                            line: Some(98),
+                            function: Some("foobar".to_string()),
+                            path: Some("/usr/src/app/util.py".to_string()),
+                            platform: Some(Platform::Python),
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![vec![1]],
+                    ..Default::default()
+                },
+            }, // end first case
+        ];
+
+        for test in test_cases.as_mut() {
+            test.profile.trim_python_stacks();
+            assert_eq!(test.profile, test.want, "test `{}` failed", test.name);
         }
     }
 }
