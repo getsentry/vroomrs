@@ -8,6 +8,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+type FrameTuple<'a> = (usize, &'a Frame);
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct OSMetadata {
     name: String,
@@ -53,7 +55,7 @@ pub struct QueueMetadata {
     label: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Sample {
     stack_id: usize,
     thread_id: u64,
@@ -63,7 +65,7 @@ pub struct Sample {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     queue_address: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    sate: Option<String>,
+    state: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
@@ -208,6 +210,128 @@ impl Profile {
             }
         }
     }
+
+    fn find_next_active_stack_id(&self, samples_indices: &[usize], i: usize) -> (i64, i64) {
+        for (j, sample_idx) in samples_indices.iter().enumerate().skip(i) {
+            let sample = &self.samples[*sample_idx];
+            if is_active_stack(&self.stacks[sample.stack_id]) {
+                return (j as i64, sample.stack_id as i64);
+            }
+        }
+        (-1, -1)
+    }
+
+    fn frames_list(&self, stack_id: usize) -> Vec<FrameTuple> {
+        let stack = &self.stacks[stack_id];
+        let mut frames: Vec<(usize, &Frame)> = Vec::with_capacity(stack.len());
+        for frame_id in stack {
+            frames.push((*frame_id, &self.frames[*frame_id]));
+        }
+        frames
+    }
+
+    fn samples_by_thread_id(&self) -> (Vec<u64>, HashMap<u64, Vec<usize>>) {
+        let mut samples: HashMap<u64, Vec<usize>> = HashMap::new();
+        let mut thread_ids: Vec<u64> = Vec::new();
+        for (i, sample) in self.samples.iter().enumerate() {
+            if !samples.contains_key(&sample.thread_id) {
+                thread_ids.push(sample.thread_id);
+            }
+            samples.entry(sample.thread_id).or_default().push(i);
+        }
+        thread_ids.sort_unstable();
+        (thread_ids, samples)
+    }
+
+    fn replace_idle_stacks(&mut self) {
+        let (thread_ids, samples_by_thread_id) = self.samples_by_thread_id();
+
+        for thread in thread_ids {
+            let samples_indices = samples_by_thread_id
+                .get(&thread)
+                .expect("sample for thread id not found");
+            let mut previous_active_stack_id: i64 = -1;
+            let mut next_active_sample_index: i64 = 0;
+            let mut next_active_stack_id: i64 = 0;
+
+            let mut i = 0;
+            while i < samples_indices.len() {
+                let sample = &mut self.samples[samples_indices[i]];
+
+                // keep track of the previous active sample as we go
+                if is_active_stack(&self.stacks[sample.stack_id]) {
+                    previous_active_stack_id = sample.stack_id as i64;
+                    i += 1;
+                    continue;
+                }
+
+                // if there's no frame, the thread is considered idle at this time
+                sample.state = Some("idle".to_string());
+
+                // if it's an idle stack but we don't have a previous active stack
+                // we keep looking
+                if previous_active_stack_id == -1 {
+                    i += 1;
+                    continue;
+                }
+
+                if i as i64 >= next_active_sample_index {
+                    (next_active_sample_index, next_active_stack_id) =
+                        self.find_next_active_stack_id(samples_indices, i);
+                    if next_active_sample_index == -1 {
+                        // no more active sample on this thread
+                        while i < samples_indices.len() {
+                            let sample = &mut self.samples[samples_indices[i]];
+                            sample.state = Some("idle".to_string());
+                            i += 1;
+                        }
+                        break;
+                    }
+                } // end if
+
+                let previous_frames = self.frames_list(previous_active_stack_id as usize);
+                let next_frames = self.frames_list(next_active_stack_id as usize);
+                let common_frames = find_common_frames(&previous_frames, &next_frames);
+
+                // add the common stack to the list of stacks
+                let mut common_stack: Vec<usize> = Vec::with_capacity(common_frames.len());
+                for frame in common_frames {
+                    common_stack.push(frame.0);
+                }
+                let common_stack_id = self.stacks.len();
+                self.stacks.push(common_stack);
+
+                // replace all idle stacks until next active sample
+                while i < next_active_sample_index as usize {
+                    let sample = &mut self.samples[samples_indices[i]];
+                    sample.stack_id = common_stack_id;
+                    sample.state = Some("idle".to_string());
+                    i += 1;
+                }
+            } // end while
+        }
+    }
+}
+
+fn is_active_stack(stack: &[usize]) -> bool {
+    !stack.is_empty()
+}
+
+fn find_common_frames<'a>(
+    a: &'a [FrameTuple<'a>],
+    b: &'a [FrameTuple<'a>],
+) -> Vec<&'a FrameTuple<'a>> {
+    let mut common_frames: Vec<&FrameTuple> = Vec::new();
+
+    for (frame_a, frame_b) in a.iter().rev().zip(b.iter().rev()) {
+        if frame_a.0 == frame_b.0 {
+            common_frames.push(frame_a);
+        } else {
+            break;
+        }
+    }
+    common_frames.reverse();
+    common_frames
 }
 
 impl ProfileInterface for SampleProfile {
@@ -266,7 +390,7 @@ impl ProfileInterface for SampleProfile {
             self.profile.trim_python_stacks();
         }
 
-        // TODO: implement replace_idle_stacks
+        self.profile.replace_idle_stacks();
     }
 }
 
@@ -277,7 +401,7 @@ mod tests {
 
     use crate::{
         frame::{self, Data, Frame},
-        sample::v1::{Profile, SampleProfile},
+        sample::v1::{Profile, Sample, SampleProfile},
         types::Platform,
     };
 
@@ -846,6 +970,692 @@ mod tests {
 
         for test in test_cases.as_mut() {
             test.profile.trim_python_stacks();
+            assert_eq!(test.profile, test.want, "test `{}` failed", test.name);
+        }
+    }
+
+    #[test]
+    fn test_replace_dile_stacks() {
+        use pretty_assertions::assert_eq;
+        struct TestStruct {
+            name: String,
+            profile: Profile,
+            want: Profile,
+        }
+
+        let mut test_cases = [
+            TestStruct {
+                name: "replace idle stacks between 2 actives".to_string(),
+                profile: Profile {
+                    samples: vec![
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 10,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 20,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 30,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 40,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 2,
+                            elapsed_since_start_ns: 50,
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![vec![], vec![4, 3, 2, 1, 0], vec![4, 2, 1, 0]],
+                    frames: vec![
+                        Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function1".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function2".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function3".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function4".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                },
+                want: Profile {
+                    samples: vec![
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 10,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 3,
+                            elapsed_since_start_ns: 20,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 3,
+                            elapsed_since_start_ns: 30,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 3,
+                            elapsed_since_start_ns: 40,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 2,
+                            elapsed_since_start_ns: 50,
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![vec![], vec![4, 3, 2, 1, 0], vec![4, 2, 1, 0], vec![2, 1, 0]],
+                    frames: vec![
+                        Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function1".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function2".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function3".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function4".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "replace idle stacks between 2 actives with idle around".to_string(),
+                profile: Profile {
+                    samples: vec![
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 10,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 20,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 30,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 2,
+                            elapsed_since_start_ns: 40,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 50,
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![vec![], vec![4, 3, 2, 1, 0], vec![4, 2, 1, 0]],
+                    frames: vec![
+                        Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function1".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function2".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function3".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function4".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                },
+                want: Profile {
+                    samples: vec![
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 10,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 20,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 3,
+                            elapsed_since_start_ns: 30,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 2,
+                            elapsed_since_start_ns: 40,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 50,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![vec![], vec![4, 3, 2, 1, 0], vec![4, 2, 1, 0], vec![2, 1, 0]],
+                    frames: vec![
+                        Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function1".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function2".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function3".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function4".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "do nothing since only one active stack".to_string(),
+                profile: Profile {
+                    samples: vec![
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 10,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 20,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 30,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 40,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 50,
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![vec![], vec![4, 3, 2, 1, 0]],
+                    frames: vec![
+                        Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function1".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function2".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function3".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function4".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                },
+                want: Profile {
+                    samples: vec![
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 10,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 20,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 30,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 40,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 50,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![vec![], vec![4, 3, 2, 1, 0]],
+                    frames: vec![
+                        Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function1".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function2".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function3".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function4".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "replace idle stacks between 2 actives on different threads".to_string(),
+                profile: Profile {
+                    samples: vec![
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 10,
+                            thread_id: 1,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 10,
+                            thread_id: 2,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 20,
+                            thread_id: 1,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 20,
+                            thread_id: 2,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 30,
+                            thread_id: 1,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 30,
+                            thread_id: 2,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 40,
+                            thread_id: 1,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 40,
+                            thread_id: 2,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 2,
+                            elapsed_since_start_ns: 50,
+                            thread_id: 1,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 2,
+                            elapsed_since_start_ns: 50,
+                            thread_id: 2,
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![vec![], vec![4, 3, 2, 1, 0], vec![4, 2, 1, 0]],
+                    frames: vec![
+                        Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function1".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function2".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function3".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function4".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                },
+                want: Profile {
+                    samples: vec![
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 10,
+                            thread_id: 1,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 10,
+                            thread_id: 2,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 3,
+                            elapsed_since_start_ns: 20,
+                            thread_id: 1,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 4,
+                            elapsed_since_start_ns: 20,
+                            thread_id: 2,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 3,
+                            elapsed_since_start_ns: 30,
+                            thread_id: 1,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 4,
+                            elapsed_since_start_ns: 30,
+                            thread_id: 2,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 3,
+                            elapsed_since_start_ns: 40,
+                            thread_id: 1,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 4,
+                            elapsed_since_start_ns: 40,
+                            thread_id: 2,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 2,
+                            elapsed_since_start_ns: 50,
+                            thread_id: 1,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 2,
+                            elapsed_since_start_ns: 50,
+                            thread_id: 2,
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![
+                        vec![],
+                        vec![4, 3, 2, 1, 0],
+                        vec![4, 2, 1, 0],
+                        vec![2, 1, 0],
+                        vec![2, 1, 0],
+                    ],
+                    frames: vec![
+                        Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function1".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function2".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function3".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function4".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                },
+            },
+            TestStruct {
+                name: "replace multiple idle stacks between 2 actives with idle stacks around"
+                    .to_string(),
+                profile: Profile {
+                    samples: vec![
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 10,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 20,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 30,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 2,
+                            elapsed_since_start_ns: 40,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 50,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 3,
+                            elapsed_since_start_ns: 60,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 70,
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![vec![], vec![4, 3, 2, 1, 0], vec![4, 2, 1, 0], vec![4, 1, 0]],
+                    frames: vec![
+                        Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function1".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function2".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function3".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function4".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                },
+                want: Profile {
+                    samples: vec![
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 10,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 1,
+                            elapsed_since_start_ns: 20,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 4,
+                            elapsed_since_start_ns: 30,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 2,
+                            elapsed_since_start_ns: 40,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 5,
+                            elapsed_since_start_ns: 50,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 3,
+                            elapsed_since_start_ns: 60,
+                            ..Default::default()
+                        },
+                        Sample {
+                            stack_id: 0,
+                            elapsed_since_start_ns: 70,
+                            state: Some("idle".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    stacks: vec![
+                        vec![],
+                        vec![4, 3, 2, 1, 0],
+                        vec![4, 2, 1, 0],
+                        vec![4, 1, 0],
+                        vec![2, 1, 0],
+                        vec![1, 0],
+                    ],
+                    frames: vec![
+                        Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function1".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function2".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function3".to_string()),
+                            ..Default::default()
+                        },
+                        Frame {
+                            function: Some("function4".to_string()),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                },
+            },
+        ];
+        for test in test_cases.as_mut() {
+            test.profile.replace_idle_stacks();
             assert_eq!(test.profile, test.want, "test `{}` failed", test.name);
         }
     }
