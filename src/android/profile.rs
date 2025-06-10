@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    sample::v1::Measurement,
+    sample::v1::{Measurement, Profile, SampleProfile},
     types::{ClientSDK, DebugMeta, Platform, ProfileInterface, TransactionMetadata},
 };
 
@@ -87,6 +87,15 @@ pub struct AndroidProfile {
     version_name: String,
 }
 
+// NestedProfile is used to deserialize the js_profile
+// when one is present.
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
+pub struct NestedProfile {
+    profile: Profile,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    processed_by_symbolicator: Option<bool>,
+}
+
 impl ProfileInterface for AndroidProfile {
     fn get_platform(&self) -> Platform {
         self.platform
@@ -134,13 +143,46 @@ impl ProfileInterface for AndroidProfile {
     }
 
     fn normalize(&mut self) {
-        todo!()
+        if let Some(js_profile_json) = &mut self.js_profile {
+            let mut js_profile: NestedProfile = serde_json::from_value(js_profile_json.clone())
+                .expect("error while deserializing js_profile");
+            let mut sample_profile = SampleProfile {
+                platform: Platform::JavaScript,
+                profile: js_profile.profile,
+                ..Default::default()
+            };
+            sample_profile.normalize();
+            js_profile.profile = sample_profile.profile;
+            let js_profile_value = serde_json::to_value(js_profile);
+            if let Ok(value) = js_profile_value {
+                self.js_profile = Some(value);
+            }
+        }
+        if self
+            .build_id
+            .as_mut()
+            .is_some_and(|build_id| !build_id.is_empty())
+        {
+            if let Some(images) = &mut self.debug_meta.images {
+                images.push(crate::debug_images::Image {
+                    r#type: Some("proguard".to_string()),
+                    uuid: Some(self.build_id.as_ref().unwrap().into()),
+                    ..Default::default()
+                });
+            }
+        }
+        self.build_id = None;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use serde_path_to_error::Error;
+
+    use crate::{
+        debug_images::Image,
+        types::{DebugMeta, ProfileInterface},
+    };
 
     use super::AndroidProfile;
 
@@ -150,5 +192,91 @@ mod tests {
         let d = &mut serde_json::Deserializer::from_slice(payload);
         let r: Result<AndroidProfile, Error<_>> = serde_path_to_error::deserialize(d);
         assert!(r.is_ok(), "{:#?}", r)
+    }
+
+    #[test]
+    fn test_normalize_android_profile_with_js_profile() {
+        use pretty_assertions::assert_eq;
+        struct TestStruct {
+            name: String,
+            profile: AndroidProfile,
+            want: AndroidProfile,
+        }
+
+        let mut test_cases = [
+            TestStruct {
+                name: "Classify [Native] frames as system frames".to_string(),
+                profile: AndroidProfile {
+                    js_profile: Some(serde_json::from_str(r#"{
+                        "profile":{
+                            "frames":[
+                                {"function":"[Native] functionPrototypeApply"}
+                            ],
+                            "samples":[
+                                {"stack_id": 0, "thread_id": 1, "elapsed_since_start_ns": 1000}
+                            ],
+                            "stacks":[
+                                [0]
+                            ]
+                        }
+                    }"#).expect("failed to parse JSON string into serde_json::Value")),
+                    ..Default::default()
+                },
+                want: AndroidProfile {
+                    js_profile: Some(serde_json::from_str(r#"{"profile":{"frames":[{"data":null,"function":"[Native] functionPrototypeApply","in_app":false,"platform":"javascript"}],"samples":[{"elapsed_since_start_ns":1000,"stack_id":0,"thread_id":1}],"stacks":[[0]]}}"#).expect("failed to parse JSON string into serde_json::Value")),
+                    ..Default::default()
+                },
+            },
+        ];
+
+        for test_case in test_cases.as_mut() {
+            //let call_trees = test_case.chunk.call_trees(None).unwrap();
+            test_case.profile.normalize();
+            assert_eq!(
+                test_case.profile.js_profile, test_case.want.js_profile,
+                "test: {} failed.",
+                test_case.name
+            );
+        }
+    }
+
+    #[test]
+    fn test_normalize_android_profile_build_id() {
+        use pretty_assertions::assert_eq;
+        struct TestStruct {
+            name: String,
+            profile: AndroidProfile,
+            want: AndroidProfile,
+        }
+
+        let mut test_cases = [TestStruct {
+            name: "set build_id in the debug images".to_string(),
+            profile: AndroidProfile {
+                build_id: Some("a1bd-e45t".to_string()),
+                debug_meta: DebugMeta {
+                    images: Some(vec![]),
+                },
+                ..Default::default()
+            },
+            want: AndroidProfile {
+                debug_meta: DebugMeta {
+                    images: Some(vec![Image {
+                        r#type: Some("proguard".to_string()),
+                        uuid: Some("a1bd-e45t".to_string()),
+                        ..Default::default()
+                    }]),
+                },
+                ..Default::default()
+            },
+        }];
+        for test_case in test_cases.as_mut() {
+            //let call_trees = test_case.chunk.call_trees(None).unwrap();
+            test_case.profile.normalize();
+            assert_eq!(
+                test_case.profile, test_case.want,
+                "test: {} failed.",
+                test_case.name
+            );
+        }
     }
 }
