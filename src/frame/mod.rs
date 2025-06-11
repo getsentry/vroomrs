@@ -19,44 +19,51 @@ static COCOA_SYSTEM_PACKAGE: Lazy<HashSet<&'static str>> =
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct Frame {
-    #[serde(rename = "colno")]
+    #[serde(rename = "colno", skip_serializing_if = "Option::is_none")]
     pub column: Option<u32>,
 
     pub data: Option<Data>,
 
-    #[serde(rename = "filename")]
+    #[serde(rename = "filename", skip_serializing_if = "Option::is_none")]
     pub file: Option<String>,
 
-    #[serde(rename = "function")]
+    #[serde(rename = "function", skip_serializing_if = "Option::is_none")]
     pub function: Option<String>,
 
-    #[serde(rename = "in_app")]
+    #[serde(rename = "in_app", skip_serializing_if = "Option::is_none")]
     pub in_app: Option<bool>,
 
-    #[serde(rename = "instruction_addr")]
+    #[serde(rename = "instruction_addr", skip_serializing_if = "Option::is_none")]
     pub instruction_addr: Option<String>,
 
-    #[serde(rename = "lang")]
+    #[serde(rename = "lang", skip_serializing_if = "Option::is_none")]
     pub lang: Option<String>,
 
-    #[serde(rename = "lineno")]
+    #[serde(rename = "lineno", skip_serializing_if = "Option::is_none")]
     pub line: Option<u32>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub method_id: Option<u64>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub module: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub package: Option<String>,
 
-    #[serde(rename = "abs_path")]
+    #[serde(rename = "abs_path", skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub sym_addr: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub platform: Option<Platform>,
 
     #[serde(skip)]

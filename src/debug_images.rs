@@ -8,7 +8,7 @@ pub struct Features {
     pub has_unwind_info: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Default, Deserialize, Debug, PartialEq)]
 pub struct Image {
     pub arch: Option<String>,
     pub code_file: Option<String>,

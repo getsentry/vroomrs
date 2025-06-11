@@ -57,75 +57,75 @@ pub struct QueueMetadata {
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Sample {
-    stack_id: usize,
-    thread_id: u64,
-    elapsed_since_start_ns: u64,
+    pub stack_id: usize,
+    pub thread_id: u64,
+    pub elapsed_since_start_ns: u64,
 
     // cocoa only
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    queue_address: Option<String>,
+    pub queue_address: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    state: Option<String>,
+    pub state: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 pub struct Profile {
-    frames: Vec<Frame>,
+    pub frames: Vec<Frame>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    queue_metadata: Option<HashMap<String, QueueMetadata>>,
-    samples: Vec<Sample>,
-    stacks: Vec<Vec<usize>>,
+    pub queue_metadata: Option<HashMap<String, QueueMetadata>>,
+    pub samples: Vec<Sample>,
+    pub stacks: Vec<Vec<usize>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    thread_metadata: Option<HashMap<String, ThreadMetadata>>,
+    pub thread_metadata: Option<HashMap<String, ThreadMetadata>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct SampleProfile {
-    client_sdk: Option<ClientSDK>,
+    pub client_sdk: Option<ClientSDK>,
 
     #[serde(default, skip_serializing_if = "DebugMeta::is_empty")]
-    debug_meta: DebugMeta,
+    pub debug_meta: DebugMeta,
 
-    device: Device,
+    pub device: Device,
 
-    environment: Option<String>,
+    pub environment: Option<String>,
 
-    event_id: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    measurements: Option<HashMap<String, Measurement>>,
-
-    os: OSMetadata,
-
-    organization_id: u64,
-
-    platform: Platform,
-
-    project_id: u64,
-
-    received: f64,
+    pub event_id: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    release: Option<String>,
+    pub measurements: Option<HashMap<String, Measurement>>,
 
-    retention_days: i32,
+    pub os: OSMetadata,
+
+    pub organization_id: u64,
+
+    pub platform: Platform,
+
+    pub project_id: u64,
+
+    pub received: f64,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    runtime: Option<RuntimeMetadata>,
+    pub release: Option<String>,
 
-    profile: Profile,
-
-    timestamp: DateTime<Utc>,
-
-    transaction: Transaction,
+    pub retention_days: i32,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    transaction_metadata: Option<TransactionMetadata>,
+    pub runtime: Option<RuntimeMetadata>,
+
+    pub profile: Profile,
+
+    pub timestamp: DateTime<Utc>,
+
+    pub transaction: Transaction,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transaction_metadata: Option<TransactionMetadata>,
 
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    transaction_tags: HashMap<String, String>,
+    pub transaction_tags: HashMap<String, String>,
 
-    version: String,
+    pub version: String,
 }
 
 impl SampleProfile {
