@@ -162,13 +162,13 @@ pub trait ChunkInterface {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct Transaction {
-    active_thread_id: u64,
+    pub active_thread_id: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    duration_ns: Option<u64>,
-    id: String,
-    name: String,
-    trace_id: String,
-    segment_id: String,
+    pub duration_ns: Option<u64>,
+    pub id: String,
+    pub name: String,
+    pub trace_id: String,
+    pub segment_id: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -223,6 +223,7 @@ pub trait ProfileInterface {
     fn get_retention_days(&self) -> i32;
     fn get_timestamp(&self) -> f64;
     fn normalize(&mut self);
+    fn call_trees(&mut self) -> Result<CallTreesU64, CallTreeError>;
 
     /// Serialize the given data structure as a JSON byte vector.
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;

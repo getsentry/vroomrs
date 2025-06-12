@@ -1,12 +1,18 @@
 use crate::{
     frame::Frame,
-    types::{ClientSDK, DebugMeta, Platform, ProfileInterface, Transaction, TransactionMetadata},
+    nodetree::Node,
+    sample::SampleError,
+    types::{
+        CallTreeError, CallTreesU64, ClientSDK, DebugMeta, Platform, ProfileInterface, Transaction,
+        TransactionMetadata,
+    },
 };
 
 use super::ThreadMetadata;
 use chrono::{DateTime, Utc};
+use fnv_rs::Fnv64;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, hash::Hasher, rc::Rc};
 
 type FrameTuple<'a> = (usize, &'a Frame);
 
@@ -392,17 +398,128 @@ impl ProfileInterface for SampleProfile {
 
         self.profile.replace_idle_stacks();
     }
+
+    fn call_trees(&mut self) -> Result<CallTreesU64, CallTreeError> {
+        // Sort samples by timestamp
+        self.profile
+            .samples
+            .sort_by(|a, b| a.elapsed_since_start_ns.cmp(&b.elapsed_since_start_ns));
+
+        let active_thread_id = self.transaction.active_thread_id;
+        let mut trees_by_thread_id: HashMap<u64, Vec<Rc<RefCell<Node>>>> = HashMap::new();
+        let mut samples_by_thread_id: HashMap<u64, Vec<&Sample>> = HashMap::new();
+
+        for sample in &self.profile.samples {
+            samples_by_thread_id
+                .entry(sample.thread_id)
+                .or_default()
+                .push(sample);
+        }
+
+        let mut hasher = Fnv64::default();
+
+        for (thread_id, samples) in samples_by_thread_id {
+            if thread_id != active_thread_id {
+                continue;
+            }
+
+            // Skip last sample as it's only used for timestamp
+            for sample_index in 0..samples.len() - 1 {
+                let sample = &samples[sample_index];
+
+                // Validate stack ID
+                if self.profile.stacks.len() <= (sample.stack_id) {
+                    return Err(CallTreeError::Sample(SampleError::InvalidStackId));
+                }
+
+                let stack = &self.profile.stacks[sample.stack_id];
+
+                // Validate frame IDs
+                for &frame_id in stack.iter().rev() {
+                    if self.profile.frames.len() <= (frame_id) {
+                        return Err(CallTreeError::Sample(SampleError::InvalidFrameId));
+                    }
+                }
+
+                // Here while we save the nextTimestamp val, we convert it to nanosecond
+                // since the Node struct and utilities use uint64 ns values
+                let next_timestamp = samples[sample_index + 1].elapsed_since_start_ns;
+                let sample_timestamp = sample.elapsed_since_start_ns;
+
+                let mut current: Option<Rc<RefCell<Node>>> = None;
+
+                // Process stack frames from bottom to top
+                for &frame_id in stack.iter().rev() {
+                    let frame = &self.profile.frames[frame_id];
+
+                    // Calculate fingerprint
+                    frame.write_to_hash(&mut hasher);
+                    let fingerprint = hasher.finish();
+
+                    match current {
+                        None => {
+                            let trees = trees_by_thread_id.entry(thread_id).or_default();
+
+                            if let Some(last_tree) = trees.last() {
+                                if last_tree.borrow().fingerprint == fingerprint
+                                    && last_tree.borrow().end_ns == sample_timestamp
+                                {
+                                    last_tree.borrow_mut().update(next_timestamp);
+                                    current = Some(Rc::clone(last_tree));
+                                    continue;
+                                }
+                            }
+
+                            let new_node = Node::from_frame(
+                                frame,
+                                sample_timestamp,
+                                next_timestamp,
+                                fingerprint,
+                            );
+                            trees.push(Rc::clone(&new_node));
+                            current = Some(new_node);
+                        }
+                        Some(node) => {
+                            let i = node.borrow().children.len();
+                            if !node.borrow().children.is_empty()
+                                && node.borrow().children[i - 1].borrow().fingerprint == fingerprint
+                                && node.borrow().children[i - 1].borrow().end_ns == sample_timestamp
+                            {
+                                let last_child = &node.borrow().children[i - 1];
+                                last_child.borrow_mut().update(next_timestamp);
+                                current = Some(Rc::clone(last_child));
+                                continue;
+                            } else {
+                                let new_node = Node::from_frame(
+                                    frame,
+                                    sample_timestamp,
+                                    next_timestamp,
+                                    fingerprint,
+                                );
+                                node.borrow_mut().children.push(Rc::clone(&new_node));
+                                current = Some(new_node);
+                            }
+                        } // end Some
+                    } // end match
+                } // end stack loop
+                hasher = Fnv64::default();
+            }
+        }
+        Ok(trees_by_thread_id)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use std::{cell::RefCell, rc::Rc};
 
     use serde_path_to_error::Error;
 
     use crate::{
         frame::{self, Data, Frame},
         sample::v1::{Profile, Sample, SampleProfile},
-        types::Platform,
+        types::{CallTreesU64, Platform, ProfileInterface, Transaction},
     };
 
     #[test]
@@ -1657,6 +1774,287 @@ mod tests {
         for test in test_cases.as_mut() {
             test.profile.replace_idle_stacks();
             assert_eq!(test.profile, test.want, "test `{}` failed", test.name);
+        }
+    }
+
+    #[test]
+    fn test_call_trees() {
+        use crate::nodetree::Node;
+        use pretty_assertions::assert_eq;
+        struct TestStruct {
+            name: String,
+            profile: SampleProfile,
+            want: CallTreesU64,
+        }
+
+        let mut test_cases = [
+            TestStruct {
+                name: "call tree with multiple samples per frame".to_string(),
+                profile: SampleProfile {
+                    profile: Profile {
+                        samples: vec![
+                            Sample {
+                                stack_id: 0,
+                                thread_id: 1,
+                                elapsed_since_start_ns: 10,
+                                ..Default::default()
+                            },
+                            Sample {
+                                stack_id: 1,
+                                thread_id: 1,
+                                elapsed_since_start_ns: 40,
+                                ..Default::default()
+                            },
+                            Sample {
+                                stack_id: 1,
+                                thread_id: 1,
+                                elapsed_since_start_ns: 50,
+                                ..Default::default()
+                            },
+                        ],
+                        stacks: vec![vec![1, 0], vec![2, 1, 0]],
+                        frames: vec![
+                            Frame {
+                                function: Some("function0".to_string()),
+                                ..Default::default()
+                            },
+                            Frame {
+                                function: Some("function1".to_string()),
+                                ..Default::default()
+                            },
+                            Frame {
+                                function: Some("function2".to_string()),
+                                ..Default::default()
+                            },
+                        ],
+                        ..Default::default()
+                    },
+                    transaction: Transaction {
+                        active_thread_id: 1,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }, //end chucnk
+                want: [(
+                    1,
+                    vec![Rc::new(RefCell::new(Node {
+                        duration_ns: 40,
+                        end_ns: 50,
+                        fingerprint: 6903369137866438128,
+                        is_application: true,
+                        name: "function0".to_string(),
+                        sample_count: 2,
+                        start_ns: 10,
+                        frame: Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        children: vec![
+                            Rc::new(RefCell::new(Node {
+                                duration_ns: 40,
+                                end_ns: 50,
+                                start_ns: 10,
+                                fingerprint: 17095743776245828002,
+                                is_application: true,
+                                name: "function1".to_string(),
+                                sample_count: 2,
+                                frame: Frame {
+                                    function: Some("function1".to_string()),
+                                    ..Default::default()
+                                },
+                                children: vec![Rc::new(RefCell::new(Node {
+                                    duration_ns: 10,
+                                    end_ns: 50,
+                                    fingerprint: 16529420490907277225,
+                                    is_application: true,
+                                    name: "function2".to_string(),
+                                    sample_count: 1,
+                                    start_ns: 40,
+                                    frame: Frame {
+                                        function: Some("function2".to_string()),
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                }))],
+                                ..Default::default()
+                            })), // TODO finish
+                        ],
+                        ..Default::default()
+                    }))],
+                )]
+                .iter()
+                .cloned()
+                .collect(),
+            }, //end first test case
+            TestStruct {
+                name: "call tree with single sample frames".to_string(),
+                profile: SampleProfile {
+                    transaction: Transaction {
+                        active_thread_id: 1,
+                        ..Default::default()
+                    },
+                    profile: Profile {
+                        samples: vec![
+                            Sample {
+                                stack_id: 0,
+                                thread_id: 1,
+                                elapsed_since_start_ns: 10,
+                                ..Default::default()
+                            },
+                            Sample {
+                                stack_id: 1,
+                                thread_id: 1,
+                                elapsed_since_start_ns: 40,
+                                ..Default::default()
+                            },
+                        ],
+                        stacks: vec![vec![1, 0], vec![2, 1, 0]],
+                        frames: vec![
+                            Frame {
+                                function: Some("function0".to_string()),
+                                ..Default::default()
+                            },
+                            Frame {
+                                function: Some("function1".to_string()),
+                                ..Default::default()
+                            },
+                            Frame {
+                                function: Some("function2".to_string()),
+                                ..Default::default()
+                            },
+                        ],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }, //end chucnk
+                want: [(
+                    1,
+                    vec![Rc::new(RefCell::new(Node {
+                        duration_ns: 30,
+                        end_ns: 40,
+                        fingerprint: 6903369137866438128,
+                        is_application: true,
+                        name: "function0".to_string(),
+                        sample_count: 1,
+                        start_ns: 10,
+                        frame: Frame {
+                            function: Some("function0".to_string()),
+                            ..Default::default()
+                        },
+                        children: vec![Rc::new(RefCell::new(Node {
+                            duration_ns: 30,
+                            end_ns: 40,
+                            fingerprint: 17095743776245828002,
+                            is_application: true,
+                            name: "function1".to_string(),
+                            sample_count: 1,
+                            start_ns: 10,
+                            frame: Frame {
+                                function: Some("function1".to_string()),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        }))],
+                        ..Default::default()
+                    }))],
+                )]
+                .iter()
+                .cloned()
+                .collect(),
+            }, //end second test case
+            TestStruct {
+                name: "call tree with single samples".to_string(),
+                profile: SampleProfile {
+                    transaction: Transaction {
+                        active_thread_id: 1,
+                        ..Default::default()
+                    },
+                    profile: Profile {
+                        samples: vec![
+                            Sample {
+                                stack_id: 0,
+                                thread_id: 1,
+                                elapsed_since_start_ns: 10,
+                                ..Default::default()
+                            },
+                            Sample {
+                                stack_id: 1,
+                                thread_id: 1,
+                                elapsed_since_start_ns: 20,
+                                ..Default::default()
+                            },
+                            Sample {
+                                stack_id: 2,
+                                thread_id: 1,
+                                elapsed_since_start_ns: 30,
+                                ..Default::default()
+                            },
+                        ],
+                        stacks: vec![vec![0], vec![1], vec![2]],
+                        frames: vec![
+                            Frame {
+                                function: Some("function0".to_string()),
+                                ..Default::default()
+                            },
+                            Frame {
+                                function: Some("function1".to_string()),
+                                ..Default::default()
+                            },
+                            Frame {
+                                function: Some("function2".to_string()),
+                                ..Default::default()
+                            },
+                        ],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }, //end chucnk
+                want: [(
+                    1,
+                    vec![
+                        Rc::new(RefCell::new(Node {
+                            duration_ns: 10,
+                            end_ns: 20,
+                            fingerprint: 6903369137866438128,
+                            is_application: true,
+                            name: "function0".to_string(),
+                            sample_count: 1,
+                            start_ns: 10,
+                            frame: Frame {
+                                function: Some("function0".to_string()),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        })),
+                        Rc::new(RefCell::new(Node {
+                            duration_ns: 10,
+                            end_ns: 30,
+                            fingerprint: 6903370237378066339,
+                            is_application: true,
+                            name: "function1".to_string(),
+                            sample_count: 1,
+                            start_ns: 20,
+                            frame: Frame {
+                                function: Some("function1".to_string()),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        })),
+                    ],
+                )]
+                .iter()
+                .cloned()
+                .collect(),
+            }, //end third test case
+        ];
+
+        for test_case in test_cases.as_mut() {
+            let call_trees = test_case.profile.call_trees().unwrap();
+            assert_eq!(
+                call_trees, test_case.want,
+                "test: {} failed.",
+                test_case.name
+            );
         }
     }
 }
