@@ -173,6 +173,10 @@ impl ProfileInterface for AndroidProfile {
         }
         self.build_id = None;
     }
+
+    fn call_trees(&mut self) -> Result<crate::types::CallTreesU64, crate::types::CallTreeError> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
