@@ -31,6 +31,10 @@ const ANDROID_PACKAGE_PREFIXES: [&str; 11] = [
     "sun.",
 ];
 
+#[derive(Debug)]
+pub enum AndroidError {
+    FillSampleMetadataError(Box<dyn std::error::Error>),
+}
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 pub struct AndroidThread {
     id: u64,

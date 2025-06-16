@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 
+use crate::android::AndroidError;
 use crate::debug_images::Image;
 use crate::nodetree::Node;
 use crate::sample::SampleError;
@@ -107,7 +108,7 @@ impl DebugMeta {
 #[derive(Debug)]
 pub enum CallTreeError {
     Sample(SampleError),
-    Android,
+    Android(AndroidError),
 }
 
 impl fmt::Display for CallTreeError {
@@ -117,7 +118,9 @@ impl fmt::Display for CallTreeError {
                 SampleError::InvalidStackId => write!(f, "invalid stack id"),
                 SampleError::InvalidFrameId => write!(f, "invalid frame id"),
             },
-            CallTreeError::Android => write!(f, "generic android call_tree error"),
+            CallTreeError::Android(android_error) => match android_error {
+                AndroidError::FillSampleMetadataError(error) => write!(f, "{}", error),
+            },
         }
     }
 }

@@ -4,11 +4,17 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    sample::v1::{Measurement, Profile, SampleProfile},
-    types::{ClientSDK, DebugMeta, Platform, ProfileInterface, TransactionMetadata},
+    android::AndroidError,
+    sample::v1::{Measurement, Profile, RuntimeMetadata, SampleProfile},
+    types::{
+        CallTreeError, ClientSDK, DebugMeta, Platform, ProfileInterface, Transaction,
+        TransactionMetadata,
+    },
 };
 
 use super::Android;
+
+static MAX_PROFILE_DURATION_FOR_CALL_TREES: u64 = 15_000_000_000;
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct AndroidProfile {
@@ -175,8 +181,67 @@ impl ProfileInterface for AndroidProfile {
     }
 
     fn call_trees(&mut self) -> Result<crate::types::CallTreesU64, crate::types::CallTreeError> {
-        todo!()
+        // Profiles longer than 15s contain a lot of call trees and it produces a lot of noise for the aggregation.
+        // The majority of them might also be timing out and we want to ignore them for the aggregation.
+        if self.duration_ns > MAX_PROFILE_DURATION_FOR_CALL_TREES {
+            return Ok(HashMap::new());
+        }
+        // this is to handle only the Reactnative (android + js)
+        // use case. If it's an Android profile but there is no
+        // js profile, we'll skip this entirely
+        if let Some(js_profile_json) = &mut self.js_profile {
+            let js_profile: NestedProfile = serde_json::from_value(js_profile_json.clone())
+                .expect("error while deserializing js_profile");
+            let mut sample_profile = SampleProfile {
+                platform: Platform::JavaScript,
+                profile: js_profile.profile,
+                ..Default::default()
+            };
+            // if we're in this branch we know for sure that here
+            // we're dealing with a react-native profile so we can
+            // set the runtime for this profile to hermes.
+            // This way, we'll be able to differentiate in other parts
+            // of the codebase between normal js frames and react-native
+            // js frames when we traverse the call trees
+            sample_profile.runtime = Some(RuntimeMetadata {
+                name: "hermes".to_string(),
+                ..Default::default()
+            });
+            match fill_sample_profile_metadata(&mut sample_profile) {
+                Ok(_) => return sample_profile.call_trees(),
+                Err(err) => {
+                    return Err(CallTreeError::Android(
+                        AndroidError::FillSampleMetadataError(err),
+                    ))
+                }
+            }
+        } // end if js_profile
+        self.profile.call_trees()
     }
+}
+
+// CallTree generation expect activeThreadID to be set in
+// order to be able to choose which samples should be used
+// for the aggregation.
+// Here we set it to the only thread that the js profile has.
+fn fill_sample_profile_metadata(
+    sample_profile: &mut SampleProfile,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some((thread_id, _)) = sample_profile
+        .profile
+        .thread_metadata
+        .as_ref()
+        .expect("cannot fill profile metadata: missing thread metadata")
+        .iter()
+        .next()
+    {
+        sample_profile.transaction = Transaction {
+            active_thread_id: thread_id.parse::<u64>()?,
+            ..Default::default()
+        };
+        return Ok(());
+    }
+    Err("cannot fill profile metadata: missing thread metadata".into())
 }
 
 #[cfg(test)]
@@ -274,7 +339,6 @@ mod tests {
             },
         }];
         for test_case in test_cases.as_mut() {
-            //let call_trees = test_case.chunk.call_trees(None).unwrap();
             test_case.profile.normalize();
             assert_eq!(
                 test_case.profile, test_case.want,
