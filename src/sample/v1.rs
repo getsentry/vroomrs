@@ -50,10 +50,10 @@ pub struct Device {
     model: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq)]
 pub struct RuntimeMetadata {
-    name: String,
-    version: String,
+    pub(crate) name: String,
+    pub(crate) version: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
