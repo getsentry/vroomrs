@@ -1,9 +1,12 @@
-use pyo3::{pyclass, PyErr, PyResult};
+use std::collections::HashMap;
+
+use pyo3::{pyclass, pymethods, PyErr, PyResult};
 
 use crate::{
     android::profile::AndroidProfile,
+    nodetree::CallTreeFunction,
     sample::v1::SampleProfile,
-    types::ProfileInterface,
+    types::{CallTreesU64, ProfileInterface},
     utils::{compress_lz4, decompress_lz4},
 };
 
@@ -73,6 +76,49 @@ impl Profile {
 
     pub fn get_platform(&self) -> String {
         self.profile.get_platform().to_string()
+    }
+}
+
+#[pymethods]
+impl Profile {
+    #[pyo3(signature = (min_depth, filter_system_frames, max_unique_functions=None))]
+    pub fn extract_functions_metrics(
+        &mut self,
+        min_depth: u16,
+        filter_system_frames: bool,
+        max_unique_functions: Option<usize>,
+    ) -> PyResult<Vec<CallTreeFunction>> {
+        let call_trees: CallTreesU64 = self.profile.call_trees()?;
+        let mut functions: HashMap<u32, CallTreeFunction> = HashMap::new();
+
+        for (tid, call_trees_for_thread) in &call_trees {
+            for call_tree in call_trees_for_thread {
+                call_tree.borrow_mut().collect_functions(
+                    &mut functions,
+                    tid.to_string().as_ref(),
+                    0,
+                    min_depth,
+                );
+            }
+        }
+
+        let mut functions_list: Vec<CallTreeFunction> = Vec::with_capacity(functions.len());
+        for (_fingerprint, function) in functions {
+            if function.sample_count <= 1 || (filter_system_frames && !function.in_app) {
+                // if there's only ever a single sample for this function in
+                // the profile, or the function represents a system frame, and we
+                // decided to ignore system frames, we skip over it to reduce the
+                //amount of data
+                continue;
+            }
+            functions_list.push(function);
+        }
+
+        // sort the list in descending order, and take the top N results
+        functions_list.sort_by(|a, b| b.sum_self_time_ns.cmp(&a.sum_self_time_ns));
+
+        functions_list.truncate(max_unique_functions.unwrap_or(functions_list.len()));
+        Ok(functions_list)
     }
 }
 
