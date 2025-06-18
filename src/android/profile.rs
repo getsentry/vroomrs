@@ -218,6 +218,25 @@ impl ProfileInterface for AndroidProfile {
         } // end if js_profile
         self.profile.call_trees()
     }
+
+    fn storage_path(&self) -> String {
+        format!(
+            "{}/{}/{}",
+            self.organization_id, self.project_id, self.profile_id
+        )
+    }
+
+    fn sdk_name(&self) -> Option<&str> {
+        self.client_sdk.as_deref().map(|sdk| sdk.name.as_str())
+    }
+
+    fn sdk_version(&self) -> Option<&str> {
+        self.client_sdk.as_deref().map(|sdk| sdk.version.as_str())
+    }
+
+    fn duration_ns(&self) -> u64 {
+        self.duration_ns
+    }
 }
 
 // CallTree generation expect activeThreadID to be set in
