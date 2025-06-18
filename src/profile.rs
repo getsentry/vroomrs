@@ -115,7 +115,7 @@ impl Profile {
     /// Returns:
     ///     str
     ///         The profile ID of the profile.
-    pub fn get_profiler_id(&self) -> &str {
+    pub fn get_profile_id(&self) -> &str {
         self.profile.get_profile_id()
     }
 
