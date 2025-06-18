@@ -399,6 +399,13 @@ impl ProfileInterface for SampleProfile {
         self.profile.replace_idle_stacks();
     }
 
+    fn storage_path(&self) -> String {
+        format!(
+            "{}/{}/{}",
+            self.organization_id, self.project_id, self.event_id
+        )
+    }
+
     fn call_trees(&mut self) -> Result<CallTreesU64, CallTreeError> {
         // Sort samples by timestamp
         self.profile
@@ -506,6 +513,22 @@ impl ProfileInterface for SampleProfile {
             }
         }
         Ok(trees_by_thread_id)
+    }
+
+    fn sdk_name(&self) -> Option<&str> {
+        self.client_sdk.as_deref().map(|sdk| sdk.name.as_str())
+    }
+
+    fn sdk_version(&self) -> Option<&str> {
+        self.client_sdk.as_deref().map(|sdk| sdk.version.as_str())
+    }
+
+    fn duration_ns(&self) -> u64 {
+        if self.profile.samples.is_empty() {
+            return 0;
+        }
+        self.profile.samples.last().unwrap().elapsed_since_start_ns
+            - self.profile.samples.first().unwrap().elapsed_since_start_ns
     }
 }
 

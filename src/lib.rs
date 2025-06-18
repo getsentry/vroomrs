@@ -49,6 +49,29 @@ fn profile_chunk_from_json_str(profile: &str, platform: Option<&str>) -> PyResul
     }
 }
 
+/// Returns a `Profile` instance from a json string
+///
+/// Arguments
+/// ---------
+/// profile : str
+///   A profile serialized as json string
+///
+///     platform (string): An optional string representing the profile platform.
+///         If provided, we can directly deserialize to the right profile more
+///         efficiently.
+///         If the platform is known at the time this function is invoked, it's
+///         recommended to always pass it.
+///
+/// Returns
+/// -------
+/// :class:`vroomrs.Profile`
+///   A `Profile` instance
+///
+/// Raises
+/// -------
+/// pyo3.exceptions.PyException
+///     If an error occurs during the extraction process.
+///
 #[pyfunction]
 #[pyo3(signature = (profile, platform=None))]
 fn profile_from_json_str(profile: &str, platform: Option<&str>) -> PyResult<Profile> {
@@ -89,6 +112,29 @@ fn decompress_profile_chunk(profile: &[u8]) -> PyResult<ProfileChunk> {
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
 }
 
+/// Returns a `Profile` instance from a lz4 encoded profile.
+///
+/// Arguments
+/// ---------
+/// profile : bytes
+///   A lz4 encoded profile.
+///
+/// Returns
+/// -------
+/// :class:`vroomrs.Profile`
+///   A `Profile` instance
+///
+/// Raises
+/// ------
+/// pyo3.exceptions.PyException
+///     If an error occurs during the extraction process.
+///
+/// Example
+/// --------
+///     >>> with open("profile_compressed.lz4", "rb") as binary_file:
+///     ...     profile = vroomrs.decompress_profile(binary_file.read())
+///             # do something with the profile
+///
 #[pyfunction]
 fn decompress_profile(profile: &[u8]) -> PyResult<Profile> {
     Profile::decompress(profile)

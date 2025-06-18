@@ -227,6 +227,10 @@ pub trait ProfileInterface {
     fn get_timestamp(&self) -> f64;
     fn normalize(&mut self);
     fn call_trees(&mut self) -> Result<CallTreesU64, CallTreeError>;
+    fn storage_path(&self) -> String;
+    fn sdk_name(&self) -> Option<&str>;
+    fn sdk_version(&self) -> Option<&str>;
+    fn duration_ns(&self) -> u64;
 
     /// Serialize the given data structure as a JSON byte vector.
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;
