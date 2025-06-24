@@ -79,6 +79,7 @@ pub fn is_cocoa_application_package(p: &str) -> bool {
         || p.starts_with("/var/containers")
         || p.contains("/Developer/Xcode/DerivedData")
         || p.contains("/data/Containers/Bundle/Application")
+        || p.contains(".app")
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
