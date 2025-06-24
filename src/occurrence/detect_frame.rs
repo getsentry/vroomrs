@@ -1,7 +1,7 @@
 use once_cell::sync::Lazy;
-use std::{collections::HashMap, time::Duration};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Duration};
 
-use crate::{frame::Frame, nodetree::Node, types::Platform};
+use crate::{frame::Frame, nodetree::Node, types::Platform, MAX_STACK_DEPTH};
 
 const BASE64_DECODE: &str = "base64_decode";
 const BASE64_ENCODE: &str = "base64_encode";
@@ -41,7 +41,7 @@ pub trait DetectFrameOptions {
 }
 
 /// Options for detecting exact frames in profiling data.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DetectExactFrameOptions {
     /// Whether to only consider the active thread
     pub active_thread_only: bool,
@@ -85,7 +85,7 @@ pub struct NodeKey {
 }
 
 /// Information about a detected node and its context.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NodeInfo {
     /// Category classification of the node
     pub category: String,
@@ -492,3 +492,1002 @@ pub static DETECT_FRAME_JOBS: Lazy<
         ])
     ])
 });
+
+/// Detects frames in a call tree starting from the root node.
+pub(crate) fn detect_frame_in_call_tree(
+    node: &Rc<RefCell<Node>>,
+    options: &dyn DetectFrameOptions,
+    nodes: &mut HashMap<NodeKey, NodeInfo>,
+) {
+    let mut stack_trace: Vec<Frame> = Vec::with_capacity(MAX_STACK_DEPTH as usize);
+    detect_frame_in_node(node, options, nodes, &mut stack_trace);
+}
+
+/// Recursively detects frames in a node and its children, building up a stack trace.
+/// Returns Some(NodeInfo) if a matching node is found, None otherwise.
+fn detect_frame_in_node(
+    node: &Rc<RefCell<Node>>,
+    options: &dyn DetectFrameOptions,
+    nodes: &mut HashMap<NodeKey, NodeInfo>,
+    stack_trace: &mut Vec<Frame>,
+) -> Option<NodeInfo> {
+    let borrowed_node = node.borrow();
+
+    // Add current node's frame to stack trace
+    stack_trace.push(borrowed_node.to_frame());
+
+    // Recursively check all children first
+    for child in &borrowed_node.children {
+        if let Some(node_info) = detect_frame_in_node(child, options, nodes, stack_trace) {
+            // Pop the current frame before returning (mimicking defer)
+            stack_trace.pop();
+            return Some(node_info);
+        }
+    }
+
+    // Check if current node matches criteria after children
+    let result = if let Some(mut node_info) = options.check_node(&borrowed_node) {
+        let key = NodeKey {
+            package: node_info.node.package.clone(),
+            function: node_info.node.name.clone(),
+        };
+
+        // Only add if this key doesn't already exist
+        if let std::collections::hash_map::Entry::Vacant(e) = nodes.entry(key) {
+            node_info.stack_trace = stack_trace.clone();
+            e.insert(node_info.clone());
+        }
+
+        Some(node_info)
+    } else {
+        None
+    };
+
+    stack_trace.pop();
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Duration};
+
+    use crate::{
+        frame::Frame,
+        nodetree::Node,
+        occurrence::detect_frame::{
+            detect_frame_in_call_tree, DetectAndroidFrameOptions, DetectExactFrameOptions,
+            DetectFrameOptions, NodeInfo, NodeKey, FILE_READ, IMAGE_DECODE,
+        },
+    };
+
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_detect_frame_in_call_tree() {
+        struct TestStruct {
+            name: String,
+            job: Box<dyn DetectFrameOptions>,
+            node: Rc<RefCell<Node>>,
+            want: HashMap<NodeKey, NodeInfo>,
+        }
+
+        let test_cases = [
+            TestStruct {
+                name: "Detect frame in call tree".to_string(),
+                job: Box::new(DetectExactFrameOptions {
+                    duration_threshold: Duration::from_millis(16),
+                    functions_by_package: HashMap::from([
+                        ("CoreFoundation", HashMap::from([
+                            ("CFReadStreamRead", FILE_READ),
+                        ]))
+                    ]),
+                    ..Default::default()
+                }),
+                node: Rc::new(RefCell::new(Node {
+                    children: vec![
+                        Rc::new(RefCell::new(Node {
+                            children: vec![
+                                Rc::new(RefCell::new(Node {
+                                    children: vec![
+                                        Rc::new(RefCell::new(Node {
+                                            children: vec![],
+                                            duration_ns: 20_000_000, // 20 * time.Millisecond
+                                            end_ns: 20_000_000,
+                                            fingerprint: 0,
+                                            is_application: false,
+                                            line: Some(0),
+                                            name: "CFReadStreamRead".to_string(),
+                                            package: "CoreFoundation".to_string(),
+                                            path: Some("path".to_string()),
+                                            sample_count: 4,
+                                            start_ns: 0,
+                                            frame: Frame {
+                                                function: Some("CFReadStreamRead".to_string()),
+                                                in_app: Some(false),
+                                                line: Some(0),
+                                                package: Some("CoreFoundation".to_string()),
+                                                path: Some("path".to_string()),
+                                                ..Default::default()
+                                            },
+                                        }))
+                                    ],
+                                    duration_ns: 20_000_000,
+                                    end_ns: 20_000_000,
+                                    fingerprint: 0,
+                                    is_application: true,
+                                    line: Some(0),
+                                    name: "child2-1".to_string(),
+                                    package: "package".to_string(),
+                                    path: Some("path".to_string()),
+                                    sample_count: 1,
+                                    start_ns: 0,
+                                    frame: Frame {
+                                        function: Some("child2-1".to_string()),
+                                        in_app: Some(true),
+                                        line: Some(0),
+                                        package: Some("package".to_string()),
+                                        path: Some("path".to_string()),
+                                        ..Default::default()
+                                    },
+                                }))
+                            ],
+                            duration_ns: 20_000_000,
+                            end_ns: 20_000_000,
+                            fingerprint: 0,
+                            is_application: false,
+                            line: Some(0),
+                            name: "child1-1".to_string(),
+                            package: "package".to_string(),
+                            path: Some("path".to_string()),
+                            sample_count: 1,
+                            start_ns: 0,
+                            frame: Frame {
+                                function: Some("child1-1".to_string()),
+                                in_app: Some(false),
+                                line: Some(0),
+                                package: Some("package".to_string()),
+                                path: Some("path".to_string()),
+                                ..Default::default()
+                            },
+                        })),
+                        Rc::new(RefCell::new(Node {
+                            children: vec![
+                                Rc::new(RefCell::new(Node {
+                                    children: vec![
+                                        Rc::new(RefCell::new(Node {
+                                            children: vec![],
+                                            duration_ns: 5,
+                                            end_ns: 10,
+                                            fingerprint: 0,
+                                            is_application: false,
+                                            line: Some(0),
+                                            name: "child3-1".to_string(),
+                                            package: "package".to_string(),
+                                            path: Some("path".to_string()),
+                                            sample_count: 1,
+                                            start_ns: 5,
+                                            frame: Frame {
+                                                function: Some("child3-1".to_string()),
+                                                in_app: Some(false),
+                                                line: Some(0),
+                                                package: Some("package".to_string()),
+                                                path: Some("path".to_string()),
+                                                ..Default::default()
+                                            },
+                                        }))
+                                    ],
+                                    duration_ns: 5,
+                                    end_ns: 10,
+                                    fingerprint: 0,
+                                    is_application: true,
+                                    line: Some(0),
+                                    name: "child2-1".to_string(),
+                                    package: "package".to_string(),
+                                    path: Some("path".to_string()),
+                                    sample_count: 1,
+                                    start_ns: 5,
+                                    frame: Frame {
+                                        function: Some("child2-1".to_string()),
+                                        in_app: Some(true),
+                                        line: Some(0),
+                                        package: Some("package".to_string()),
+                                        path: Some("path".to_string()),
+                                        ..Default::default()
+                                    },
+                                }))
+                            ],
+                            duration_ns: 5,
+                            end_ns: 10,
+                            fingerprint: 0,
+                            is_application: false,
+                            line: Some(0),
+                            name: "child1-2".to_string(),
+                            package: "package".to_string(),
+                            path: Some("path".to_string()),
+                            sample_count: 1,
+                            start_ns: 5,
+                            frame: Frame {
+                                function: Some("child1-2".to_string()),
+                                in_app: Some(false),
+                                line: Some(0),
+                                package: Some("package".to_string()),
+                                path: Some("path".to_string()),
+                                ..Default::default()
+                            },
+                        }))
+                    ],
+                    duration_ns: 30_000_000, // 30 * time.Millisecond
+                    end_ns: 30_000_000,
+                    fingerprint: 0,
+                    is_application: true,
+                    line: Some(0),
+                    name: "root".to_string(),
+                    package: "package".to_string(),
+                    path: Some("path".to_string()),
+                    sample_count: 1,
+                    start_ns: 0,
+                    frame: Frame {
+                        function: Some("root".to_string()),
+                        in_app: Some(true),
+                        line: Some(0),
+                        package: Some("package".to_string()),
+                        path: Some("path".to_string()),
+                        ..Default::default()
+                    },
+                })),
+                want: HashMap::from([
+                    (
+                        NodeKey {
+                            package: "CoreFoundation".to_string(),
+                            function: "CFReadStreamRead".to_string(),
+                        },
+                        NodeInfo {
+                            category: FILE_READ.to_string(),
+                            node: Node {
+                                children: vec![], // children cleared as per the logic
+                                duration_ns: 20_000_000,
+                                end_ns: 20_000_000,
+                                fingerprint: 0,
+                                is_application: false,
+                                line: Some(0),
+                                name: "CFReadStreamRead".to_string(),
+                                package: "CoreFoundation".to_string(),
+                                path: Some("path".to_string()),
+                                sample_count: 4,
+                                start_ns: 0,
+                                frame: Frame {
+                                    function: Some("CFReadStreamRead".to_string()),
+                                    in_app: Some(false),
+                                    line: Some(0),
+                                    package: Some("CoreFoundation".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            },
+                            stack_trace: vec![
+                                Frame {
+                                    function: Some("root".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("child1-1".to_string()),
+                                    in_app: Some(false),
+                                    line: Some(0),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("child2-1".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("CFReadStreamRead".to_string()),
+                                    in_app: Some(false),
+                                    line: Some(0),
+                                    package: Some("CoreFoundation".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            ],
+                        }
+                    )
+                ]),
+            },
+            TestStruct {
+                name: "Do not detect frame in call tree under duration threshold".to_string(),
+                job: Box::new(DetectExactFrameOptions {
+                    duration_threshold: Duration::from_millis(16),
+                    functions_by_package: HashMap::from([
+                        ("vroom", HashMap::from([
+                            ("SuperShortFunction", FILE_READ),
+                        ]))
+                    ]),
+                    ..Default::default()
+                }),
+                node: Rc::new(RefCell::new(Node {
+                    children: vec![
+                        Rc::new(RefCell::new(Node {
+                            children: vec![
+                                Rc::new(RefCell::new(Node {
+                                    children: vec![
+                                        Rc::new(RefCell::new(Node {
+                                            children: vec![],
+                                            duration_ns: 10_000_000, // 10 * time.Millisecond - below threshold
+                                            end_ns: 10_000_000,
+                                            fingerprint: 0,
+                                            is_application: false,
+                                            line: Some(0),
+                                            name: "SuperShortFunction".to_string(),
+                                            package: "vroom".to_string(),
+                                            path: Some("path".to_string()),
+                                            sample_count: 1,
+                                            start_ns: 0,
+                                            frame: Frame {
+                                                function: Some("SuperShortFunction".to_string()),
+                                                in_app: Some(false),
+                                                line: Some(0),
+                                                package: Some("vroom".to_string()),
+                                                path: Some("path".to_string()),
+                                                ..Default::default()
+                                            },
+                                        }))
+                                    ],
+                                    duration_ns: 20_000_000,
+                                    end_ns: 20_000_000,
+                                    fingerprint: 0,
+                                    is_application: true,
+                                    line: Some(0),
+                                    name: "child2-1".to_string(),
+                                    package: "package".to_string(),
+                                    path: Some("path".to_string()),
+                                    sample_count: 1,
+                                    start_ns: 0,
+                                    frame: Frame {
+                                        function: Some("child2-1".to_string()),
+                                        in_app: Some(true),
+                                        line: Some(0),
+                                        package: Some("package".to_string()),
+                                        path: Some("path".to_string()),
+                                        ..Default::default()
+                                    },
+                                }))
+                            ],
+                            duration_ns: 20_000_000,
+                            end_ns: 20_000_000,
+                            fingerprint: 0,
+                            is_application: false,
+                            line: Some(0),
+                            name: "child1-1".to_string(),
+                            package: "package".to_string(),
+                            path: Some("path".to_string()),
+                            sample_count: 1,
+                            start_ns: 0,
+                            frame: Frame {
+                                function: Some("child1-1".to_string()),
+                                in_app: Some(false),
+                                line: Some(0),
+                                package: Some("package".to_string()),
+                                path: Some("path".to_string()),
+                                ..Default::default()
+                            },
+                        }))
+                    ],
+                    duration_ns: 30_000_000, // 30 * time.Millisecond
+                    end_ns: 30_000_000,
+                    fingerprint: 0,
+                    is_application: true,
+                    line: Some(0),
+                    name: "root".to_string(),
+                    package: "package".to_string(),
+                    path: Some("path".to_string()),
+                    sample_count: 1,
+                    start_ns: 0,
+                    frame: Frame {
+                        function: Some("root".to_string()),
+                        in_app: Some(true),
+                        line: Some(0),
+                        package: Some("package".to_string()),
+                        path: Some("path".to_string()),
+                        ..Default::default()
+                    },
+                })),
+                want: HashMap::new(), // Empty - no nodes should be detected
+            },
+            TestStruct {
+                name: "Do not detect frame in call tree under sample threshold".to_string(),
+                job: Box::new(DetectExactFrameOptions {
+                    duration_threshold: Duration::from_millis(16),
+                    sample_threshold: 4,
+                    functions_by_package: HashMap::from([
+                        ("vroom", HashMap::from([
+                            ("FunctionWithOneSample", FILE_READ),
+                            ("FunctionWithManySamples", FILE_READ),
+                        ]))
+                    ]),
+                    ..Default::default()
+                }),
+                node: Rc::new(RefCell::new(Node {
+                    children: vec![
+                        Rc::new(RefCell::new(Node {
+                            children: vec![
+                                Rc::new(RefCell::new(Node {
+                                    children: vec![
+                                        Rc::new(RefCell::new(Node {
+                                            children: vec![],
+                                            duration_ns: 20_000_000,
+                                            end_ns: 20_000_000,
+                                            fingerprint: 0,
+                                            is_application: false,
+                                            line: Some(0),
+                                            name: "FunctionWithOneSample".to_string(),
+                                            package: "vroom".to_string(),
+                                            path: Some("path".to_string()),
+                                            sample_count: 1, // Below threshold of 4
+                                            start_ns: 0,
+                                            frame: Frame {
+                                                function: Some("FunctionWithOneSample".to_string()),
+                                                in_app: Some(false),
+                                                line: Some(0),
+                                                package: Some("vroom".to_string()),
+                                                path: Some("path".to_string()),
+                                                ..Default::default()
+                                            },
+                                        })),
+                                        Rc::new(RefCell::new(Node {
+                                            children: vec![
+                                                Rc::new(RefCell::new(Node {
+                                                    children: vec![],
+                                                    duration_ns: 20_000_000,
+                                                    end_ns: 20_000_000,
+                                                    fingerprint: 0,
+                                                    is_application: false,
+                                                    line: Some(0),
+                                                    name: "FunctionWithManySamples".to_string(),
+                                                    package: "vroom".to_string(),
+                                                    path: Some("path".to_string()),
+                                                    sample_count: 4, // Meets threshold of 4
+                                                    start_ns: 0,
+                                                    frame: Frame {
+                                                        function: Some("FunctionWithManySamples".to_string()),
+                                                        in_app: Some(false),
+                                                        line: Some(0),
+                                                        package: Some("vroom".to_string()),
+                                                        path: Some("path".to_string()),
+                                                        ..Default::default()
+                                                    },
+                                                }))
+                                            ],
+                                            duration_ns: 20_000_000,
+                                            end_ns: 20_000_000,
+                                            fingerprint: 0,
+                                            is_application: true,
+                                            line: Some(0),
+                                            name: "child3-1".to_string(),
+                                            package: "package".to_string(),
+                                            path: Some("path".to_string()),
+                                            sample_count: 1,
+                                            start_ns: 0,
+                                            frame: Frame {
+                                                function: Some("child3-1".to_string()),
+                                                in_app: Some(true),
+                                                line: Some(0),
+                                                package: Some("package".to_string()),
+                                                path: Some("path".to_string()),
+                                                ..Default::default()
+                                            },
+                                        }))
+                                    ],
+                                    duration_ns: 20_000_000,
+                                    end_ns: 20_000_000,
+                                    fingerprint: 0,
+                                    is_application: true,
+                                    line: Some(0),
+                                    name: "child2-1".to_string(),
+                                    package: "package".to_string(),
+                                    path: Some("path".to_string()),
+                                    sample_count: 1,
+                                    start_ns: 0,
+                                    frame: Frame {
+                                        function: Some("child2-1".to_string()),
+                                        in_app: Some(true),
+                                        line: Some(0),
+                                        package: Some("package".to_string()),
+                                        path: Some("path".to_string()),
+                                        ..Default::default()
+                                    },
+                                }))
+                            ],
+                            duration_ns: 20_000_000,
+                            end_ns: 20_000_000,
+                            fingerprint: 0,
+                            is_application: false,
+                            line: Some(0),
+                            name: "child1-1".to_string(),
+                            package: "package".to_string(),
+                            path: Some("path".to_string()),
+                            sample_count: 1,
+                            start_ns: 0,
+                            frame: Frame {
+                                function: Some("child1-1".to_string()),
+                                in_app: Some(false),
+                                line: Some(0),
+                                package: Some("package".to_string()),
+                                path: Some("path".to_string()),
+                                ..Default::default()
+                            },
+                        }))
+                    ],
+                    duration_ns: 30_000_000,
+                    end_ns: 30_000_000,
+                    fingerprint: 0,
+                    is_application: true,
+                    line: Some(0),
+                    name: "root".to_string(),
+                    package: "package".to_string(),
+                    path: Some("path".to_string()),
+                    sample_count: 1,
+                    start_ns: 0,
+                    frame: Frame {
+                        function: Some("root".to_string()),
+                        in_app: Some(true),
+                        line: Some(0),
+                        package: Some("package".to_string()),
+                        path: Some("path".to_string()),
+                        ..Default::default()
+                    },
+                })),
+                want: HashMap::from([
+                    (
+                        NodeKey {
+                            package: "vroom".to_string(),
+                            function: "FunctionWithManySamples".to_string(),
+                        },
+                        NodeInfo {
+                            category: FILE_READ.to_string(),
+                            node: Node {
+                                children: vec![], // children cleared as per the logic
+                                duration_ns: 20_000_000,
+                                end_ns: 20_000_000,
+                                fingerprint: 0,
+                                is_application: false,
+                                line: Some(0),
+                                name: "FunctionWithManySamples".to_string(),
+                                package: "vroom".to_string(),
+                                path: Some("path".to_string()),
+                                sample_count: 4,
+                                start_ns: 0,
+                                frame: Frame {
+                                    function: Some("FunctionWithManySamples".to_string()),
+                                    in_app: Some(false),
+                                    line: Some(0),
+                                    package: Some("vroom".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            },
+                            stack_trace: vec![
+                                Frame {
+                                    function: Some("root".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("child1-1".to_string()),
+                                    in_app: Some(false),
+                                    line: Some(0),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("child2-1".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("child3-1".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("FunctionWithManySamples".to_string()),
+                                    in_app: Some(false),
+                                    line: Some(0),
+                                    package: Some("vroom".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            ],
+                        }
+                                         )
+                 ]),
+            },
+            TestStruct {
+                name: "Detect deeper frame in call tree".to_string(),
+                job: Box::new(DetectExactFrameOptions {
+                    duration_threshold: Duration::from_millis(16),
+                    functions_by_package: HashMap::from([
+                        ("CoreFoundation", HashMap::from([
+                            ("LeafFunction", FILE_READ),
+                            ("RandomFunction", FILE_READ),
+                        ]))
+                    ]),
+                    ..Default::default()
+                }),
+                node: Rc::new(RefCell::new(Node {
+                    children: vec![
+                        Rc::new(RefCell::new(Node {
+                            children: vec![
+                                Rc::new(RefCell::new(Node {
+                                    children: vec![
+                                        Rc::new(RefCell::new(Node {
+                                            children: vec![],
+                                            duration_ns: 20_000_000,
+                                            end_ns: 20_000_000,
+                                            fingerprint: 0,
+                                            is_application: false,
+                                            line: Some(0),
+                                            name: "LeafFunction".to_string(),
+                                            package: "CoreFoundation".to_string(),
+                                            path: Some("path".to_string()),
+                                            sample_count: 1,
+                                            start_ns: 0,
+                                            frame: Frame {
+                                                function: Some("LeafFunction".to_string()),
+                                                in_app: Some(false),
+                                                line: Some(0),
+                                                package: Some("CoreFoundation".to_string()),
+                                                path: Some("path".to_string()),
+                                                ..Default::default()
+                                            },
+                                        }))
+                                    ],
+                                    duration_ns: 20_000_000,
+                                    end_ns: 20_000_000,
+                                    fingerprint: 0,
+                                    is_application: true,
+                                    line: Some(0),
+                                    name: "RandomFunction".to_string(),
+                                    package: "CoreFoundation".to_string(),
+                                    path: Some("path".to_string()),
+                                    sample_count: 1,
+                                    start_ns: 0,
+                                    frame: Frame {
+                                        function: Some("RandomFunction".to_string()),
+                                        in_app: Some(true),
+                                        line: Some(0),
+                                        package: Some("CoreFoundation".to_string()),
+                                        path: Some("path".to_string()),
+                                        ..Default::default()
+                                    },
+                                }))
+                            ],
+                            duration_ns: 20_000_000,
+                            end_ns: 20_000_000,
+                            fingerprint: 0,
+                            is_application: false,
+                            line: Some(0),
+                            name: "child1-1".to_string(),
+                            package: "package".to_string(),
+                            path: Some("path".to_string()),
+                            sample_count: 1,
+                            start_ns: 0,
+                            frame: Frame {
+                                function: Some("child1-1".to_string()),
+                                in_app: Some(false),
+                                line: Some(0),
+                                package: Some("package".to_string()),
+                                path: Some("path".to_string()),
+                                ..Default::default()
+                            },
+                        }))
+                    ],
+                    duration_ns: 30_000_000,
+                    end_ns: 30_000_000,
+                    fingerprint: 0,
+                    is_application: true,
+                    line: Some(0),
+                    name: "root".to_string(),
+                    package: "package".to_string(),
+                    path: Some("path".to_string()),
+                    sample_count: 1,
+                    start_ns: 0,
+                    frame: Frame {
+                        function: Some("root".to_string()),
+                        in_app: Some(true),
+                        line: Some(0),
+                        package: Some("package".to_string()),
+                        path: Some("path".to_string()),
+                        ..Default::default()
+                    },
+                })),
+                want: HashMap::from([
+                    (
+                        NodeKey {
+                            package: "CoreFoundation".to_string(),
+                            function: "LeafFunction".to_string(),
+                        },
+                        NodeInfo {
+                            category: FILE_READ.to_string(),
+                            node: Node {
+                                children: vec![], // children cleared as per the logic
+                                duration_ns: 20_000_000,
+                                end_ns: 20_000_000,
+                                fingerprint: 0,
+                                is_application: false,
+                                line: Some(0),
+                                name: "LeafFunction".to_string(),
+                                package: "CoreFoundation".to_string(),
+                                path: Some("path".to_string()),
+                                sample_count: 1,
+                                start_ns: 0,
+                                frame: Frame {
+                                    function: Some("LeafFunction".to_string()),
+                                    in_app: Some(false),
+                                    line: Some(0),
+                                    package: Some("CoreFoundation".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            },
+                            stack_trace: vec![
+                                Frame {
+                                    function: Some("root".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("child1-1".to_string()),
+                                    in_app: Some(false),
+                                    line: Some(0),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("RandomFunction".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("CoreFoundation".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("LeafFunction".to_string()),
+                                    in_app: Some(false),
+                                    line: Some(0),
+                                    package: Some("CoreFoundation".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            ],
+                        }
+                                        )
+                ]),
+            },
+            TestStruct {
+                name: "Detect first frame".to_string(),
+                job: Box::new(DetectExactFrameOptions {
+                    duration_threshold: Duration::from_millis(16),
+                    functions_by_package: HashMap::from([
+                        ("CoreFoundation", HashMap::from([
+                            ("RandomFunction", FILE_READ),
+                        ]))
+                    ]),
+                    ..Default::default()
+                }),
+                node: Rc::new(RefCell::new(Node {
+                    children: vec![
+                        Rc::new(RefCell::new(Node {
+                            children: vec![],
+                            duration_ns: 20_000_000,
+                            end_ns: 20_000_000,
+                            fingerprint: 0,
+                            is_application: false,
+                            line: Some(0),
+                            name: "child1-1".to_string(),
+                            package: "package".to_string(),
+                            path: Some("path".to_string()),
+                            sample_count: 1,
+                            start_ns: 0,
+                            frame: Frame {
+                                function: Some("child1-1".to_string()),
+                                in_app: Some(false),
+                                line: Some(0),
+                                package: Some("package".to_string()),
+                                path: Some("path".to_string()),
+                                ..Default::default()
+                            },
+                        })),
+                        Rc::new(RefCell::new(Node {
+                            children: vec![],
+                            duration_ns: 20_000_000,
+                            end_ns: 20_000_000,
+                            fingerprint: 0,
+                            is_application: false,
+                            line: Some(0),
+                            name: "child1-2".to_string(),
+                            package: "package".to_string(),
+                            path: Some("path".to_string()),
+                            sample_count: 1,
+                            start_ns: 0,
+                            frame: Frame {
+                                function: Some("child1-2".to_string()),
+                                in_app: Some(false),
+                                line: Some(0),
+                                package: Some("package".to_string()),
+                                path: Some("path".to_string()),
+                                ..Default::default()
+                            },
+                        }))
+                    ],
+                    duration_ns: 30_000_000,
+                    end_ns: 30_000_000,
+                    fingerprint: 0,
+                    is_application: true,
+                    line: Some(0),
+                    name: "RandomFunction".to_string(),
+                    package: "CoreFoundation".to_string(),
+                    path: Some("path".to_string()),
+                    sample_count: 1,
+                    start_ns: 0,
+                    frame: Frame {
+                        function: Some("RandomFunction".to_string()),
+                        in_app: Some(true),
+                        line: Some(0),
+                        package: Some("CoreFoundation".to_string()),
+                        path: Some("path".to_string()),
+                        ..Default::default()
+                    },
+                })),
+                want: HashMap::from([
+                    (
+                        NodeKey {
+                            package: "CoreFoundation".to_string(),
+                            function: "RandomFunction".to_string(),
+                        },
+                        NodeInfo {
+                            category: FILE_READ.to_string(),
+                            node: Node {
+                                children: vec![], // children cleared as per the logic
+                                duration_ns: 30_000_000,
+                                end_ns: 30_000_000,
+                                fingerprint: 0,
+                                is_application: true,
+                                line: Some(0),
+                                name: "RandomFunction".to_string(),
+                                package: "CoreFoundation".to_string(),
+                                path: Some("path".to_string()),
+                                sample_count: 1,
+                                start_ns: 0,
+                                frame: Frame {
+                                    function: Some("RandomFunction".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("CoreFoundation".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            },
+                            stack_trace: vec![
+                                Frame {
+                                    function: Some("RandomFunction".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("CoreFoundation".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            ],
+                        }
+                                            )
+                ]),
+            },
+            TestStruct {
+                name: "Detect android frame".to_string(),
+                job: Box::new(DetectAndroidFrameOptions {
+                    active_thread_only: false,
+                    duration_threshold: Duration::from_millis(16),
+                    sample_threshold: 1,
+                    functions_by_package: HashMap::from([
+                        ("android.graphics", HashMap::from([
+                            ("android.graphics.BitmapFactory.decodeStream", IMAGE_DECODE),
+                        ]))
+                    ]),
+                }),
+                node: Rc::new(RefCell::new(Node {
+                    children: vec![],
+                    duration_ns: 30_000_000,
+                    end_ns: 30_000_000,
+                    fingerprint: 0,
+                    is_application: true,
+                    line: Some(0),
+                    name: "android.graphics.BitmapFactory.decodeStream(java.io.InputStream, android.graphics.Rect, android.graphics.BitmapFactory$Options): android.graphics.Bitmap".to_string(),
+                    package: "android.graphics".to_string(),
+                    path: Some("path".to_string()),
+                    sample_count: 1,
+                    start_ns: 0,
+                    frame: Frame {
+                        function: Some("android.graphics.BitmapFactory.decodeStream(java.io.InputStream, android.graphics.Rect, android.graphics.BitmapFactory$Options): android.graphics.Bitmap".to_string()),
+                        in_app: Some(true),
+                        line: Some(0),
+                        package: Some("android.graphics".to_string()),
+                        path: Some("path".to_string()),
+                        ..Default::default()
+                    },
+                })),
+                want: HashMap::from([
+                    (
+                        NodeKey {
+                            package: "android.graphics".to_string(),
+                            function: "android.graphics.BitmapFactory.decodeStream(java.io.InputStream, android.graphics.Rect, android.graphics.BitmapFactory$Options): android.graphics.Bitmap".to_string(),
+                        },
+                        NodeInfo {
+                            category: IMAGE_DECODE.to_string(),
+                            node: Node {
+                                children: vec![], // children cleared as per the logic
+                                duration_ns: 30_000_000,
+                                end_ns: 30_000_000,
+                                fingerprint: 0,
+                                is_application: true,
+                                line: Some(0),
+                                name: "android.graphics.BitmapFactory.decodeStream(java.io.InputStream, android.graphics.Rect, android.graphics.BitmapFactory$Options): android.graphics.Bitmap".to_string(),
+                                package: "android.graphics".to_string(),
+                                path: Some("path".to_string()),
+                                sample_count: 1,
+                                start_ns: 0,
+                                frame: Frame {
+                                    function: Some("android.graphics.BitmapFactory.decodeStream(java.io.InputStream, android.graphics.Rect, android.graphics.BitmapFactory$Options): android.graphics.Bitmap".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("android.graphics".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            },
+                            stack_trace: vec![
+                                Frame {
+                                    function: Some("android.graphics.BitmapFactory.decodeStream(java.io.InputStream, android.graphics.Rect, android.graphics.BitmapFactory$Options): android.graphics.Bitmap".to_string()),
+                                    in_app: Some(true),
+                                    line: Some(0),
+                                    package: Some("android.graphics".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            ],
+                        }
+                    )
+                ]),
+            }
+        ];
+
+        for test in test_cases {
+            let mut nodes = HashMap::new();
+            detect_frame_in_call_tree(&test.node, test.job.as_ref(), &mut nodes);
+
+            assert_eq!(nodes, test.want, "test '{}' failed", test.name);
+        }
+    }
+}
