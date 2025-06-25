@@ -181,39 +181,39 @@ pub struct TransactionMetadata {
         skip_serializing_if = "Option::is_none",
         rename = "app.identifier"
     )]
-    app_identifier: Option<String>,
+    pub app_identifier: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    dist: Option<String>,
+    pub dist: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    environment: Option<String>,
+    pub environment: Option<String>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         rename = "http.method"
     )]
-    http_method: Option<String>,
+    pub http_method: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    release: Option<String>,
+    pub release: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    transaction: Option<String>,
+    pub transaction: Option<String>,
     #[serde(rename = "transaction.end")]
-    transaction_end: DateTime<Utc>,
+    pub transaction_end: DateTime<Utc>,
     #[serde(rename = "transaction.start")]
-    transaction_start: DateTime<Utc>,
+    pub transaction_start: DateTime<Utc>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         rename = "transaction.op"
     )]
-    transaction_op: Option<String>,
+    pub transaction_op: Option<String>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         rename = "transaction.status"
     )]
-    transaction_status: Option<String>,
+    pub transaction_status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    segment_id: Option<String>,
+    pub segment_id: Option<String>,
 }
 pub trait ProfileInterface {
     fn get_environment(&self) -> Option<&str>;
@@ -231,6 +231,7 @@ pub trait ProfileInterface {
     fn sdk_name(&self) -> Option<&str>;
     fn sdk_version(&self) -> Option<&str>;
     fn duration_ns(&self) -> u64;
+    fn get_transaction(&self) -> Cow<Transaction>;
 
     /// Serialize the given data structure as a JSON byte vector.
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;

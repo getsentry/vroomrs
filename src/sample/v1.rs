@@ -12,7 +12,7 @@ use super::ThreadMetadata;
 use chrono::{DateTime, Utc};
 use fnv_rs::Fnv64;
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::HashMap, hash::Hasher, rc::Rc};
+use std::{borrow::Cow, cell::RefCell, collections::HashMap, hash::Hasher, rc::Rc};
 
 type FrameTuple<'a> = (usize, &'a Frame);
 
@@ -529,6 +529,10 @@ impl ProfileInterface for SampleProfile {
         }
         self.profile.samples.last().unwrap().elapsed_since_start_ns
             - self.profile.samples.first().unwrap().elapsed_since_start_ns
+    }
+
+    fn get_transaction(&self) -> Cow<Transaction> {
+        Cow::Borrowed(&self.transaction)
     }
 }
 

@@ -240,6 +240,14 @@ struct Android {
 }
 
 impl Android {
+    /// Returns the thread ID of the main thread, or 0 if not found
+    fn active_thread_id(&self) -> u64 {
+        self.threads
+            .iter()
+            .find(|thread| thread.name == MAIN_THREAD)
+            .map_or(0, |thread| thread.id)
+    }
+
     /// Wall-clock time is supposed to be monotonic
     /// in a few rare cases we've noticed this was not the case.
     /// Due to some overflow happening client-side in the embedded
@@ -392,11 +400,7 @@ impl Android {
         // in case wall-clock.secs is not monotonic, "fix" it
         self.fix_samples_time();
 
-        let active_thread_id: u64 = self
-            .threads
-            .iter()
-            .find(|thread| thread.name.as_str() == MAIN_THREAD)
-            .map_or(0, |thread| thread.id);
+        let active_thread_id = self.active_thread_id();
 
         let build_timestamp = self.timestamp_getter();
         let mut trees_by_thread_id: HashMap<u64, Vec<Rc<RefCell<Node>>>> = HashMap::new();
