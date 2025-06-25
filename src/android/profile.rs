@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -236,6 +236,23 @@ impl ProfileInterface for AndroidProfile {
 
     fn duration_ns(&self) -> u64 {
         self.duration_ns
+    }
+
+    fn get_transaction(&self) -> Cow<Transaction> {
+        Cow::Owned(Transaction {
+            active_thread_id: self.profile.active_thread_id(),
+            duration_ns: Some(self.duration_ns),
+            id: self.transaction_id.clone(),
+            name: self.transaction_name.clone(),
+            trace_id: self.trace_id.clone(),
+            segment_id: self
+                .transaction_metadata
+                .as_ref()
+                .unwrap()
+                .segment_id
+                .as_ref()
+                .map_or("".to_string(), |segment| segment.clone()),
+        })
     }
 }
 
