@@ -95,7 +95,7 @@ pub struct CategoryMetadata {
 pub struct Event {
     pub debug_meta: DebugMeta,
     pub environment: String,
-    pub id: String,
+    pub event_id: String,
     pub platform: String,
     pub project_id: u64,
     pub received: f64,
