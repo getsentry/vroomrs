@@ -3,32 +3,32 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Duration};
 
 use crate::{frame::Frame, nodetree::Node, types::Platform, MAX_STACK_DEPTH};
 
-const BASE64_DECODE: &str = "base64_decode";
-const BASE64_ENCODE: &str = "base64_encode";
-const COMPRESSION: &str = "compression";
-const CORE_DATA_BLOCK: &str = "core_data_block";
-const CORE_DATA_MERGE: &str = "core_data_merge";
-const CORE_DATA_READ: &str = "core_data_read";
-const CORE_DATA_WRITE: &str = "core_data_write";
-const DECOMPRESSION: &str = "decompression";
-const FILE_READ: &str = "file_read";
-const FILE_WRITE: &str = "file_write";
-const HTTP: &str = "http";
-const IMAGE_DECODE: &str = "image_decode";
-const IMAGE_ENCODE: &str = "image_encode";
-const JSON_DECODE: &str = "json_decode";
-const JSON_ENCODE: &str = "json_encode";
-const ML_MODEL_INFERENCE: &str = "ml_model_inference";
-const ML_MODEL_LOAD: &str = "ml_model_load";
-const REGEX: &str = "regex";
-const SQL: &str = "sql";
-const SOURCE_CONTEXT: &str = "source_context";
-const THREAD_WAIT: &str = "thread_wait";
-const VIEW_INFLATION: &str = "view_inflation";
-const VIEW_LAYOUT: &str = "view_layout";
-const VIEW_RENDER: &str = "view_render";
-const VIEW_UPDATE: &str = "view_update";
-const XPC: &str = "xpc";
+pub(crate) const BASE64_DECODE: &str = "base64_decode";
+pub(crate) const BASE64_ENCODE: &str = "base64_encode";
+pub(crate) const COMPRESSION: &str = "compression";
+pub(crate) const CORE_DATA_BLOCK: &str = "core_data_block";
+pub(crate) const CORE_DATA_MERGE: &str = "core_data_merge";
+pub(crate) const CORE_DATA_READ: &str = "core_data_read";
+pub(crate) const CORE_DATA_WRITE: &str = "core_data_write";
+pub(crate) const DECOMPRESSION: &str = "decompression";
+pub(crate) const FILE_READ: &str = "file_read";
+pub(crate) const FILE_WRITE: &str = "file_write";
+pub(crate) const HTTP: &str = "http";
+pub(crate) const IMAGE_DECODE: &str = "image_decode";
+pub(crate) const IMAGE_ENCODE: &str = "image_encode";
+pub(crate) const JSON_DECODE: &str = "json_decode";
+pub(crate) const JSON_ENCODE: &str = "json_encode";
+pub(crate) const ML_MODEL_INFERENCE: &str = "ml_model_inference";
+pub(crate) const ML_MODEL_LOAD: &str = "ml_model_load";
+pub(crate) const REGEX: &str = "regex";
+pub(crate) const SQL: &str = "sql";
+pub(crate) const SOURCE_CONTEXT: &str = "source_context";
+pub(crate) const THREAD_WAIT: &str = "thread_wait";
+pub(crate) const VIEW_INFLATION: &str = "view_inflation";
+pub(crate) const VIEW_LAYOUT: &str = "view_layout";
+pub(crate) const VIEW_RENDER: &str = "view_render";
+pub(crate) const VIEW_UPDATE: &str = "view_update";
+pub(crate) const XPC: &str = "xpc";
 
 /// Trait for frame detection options with configurable behavior.
 pub trait DetectFrameOptions {

@@ -173,7 +173,7 @@ impl Profile {
     ///     float
     ///         The timestamp of the profile.
     pub fn get_timestamp(&self) -> f64 {
-        self.profile.get_timestamp()
+        self.profile.get_timestamp().timestamp_micros() as f64 / 1_000_000.0
     }
 
     /// Returns the SDK name.

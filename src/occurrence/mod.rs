@@ -1,1 +1,665 @@
+use std::collections::HashMap;
+use std::time::Duration;
+
+use chrono::{DateTime, Utc};
+use once_cell::sync::Lazy;
+use pyo3::{IntoPyObject, PyObject, Python};
+use uuid::Uuid;
+
+use crate::{
+    android, frame,
+    types::{DebugMeta, Platform, ProfileInterface},
+};
+
 mod detect_frame;
+
+// Import category constants from detect_frame module
+use detect_frame::{
+    NodeInfo, BASE64_DECODE, BASE64_ENCODE, COMPRESSION, CORE_DATA_BLOCK, CORE_DATA_MERGE,
+    CORE_DATA_READ, CORE_DATA_WRITE, DECOMPRESSION, FILE_READ, FILE_WRITE, HTTP, IMAGE_DECODE,
+    IMAGE_ENCODE, JSON_DECODE, JSON_ENCODE, ML_MODEL_INFERENCE, ML_MODEL_LOAD, REGEX,
+    SOURCE_CONTEXT, SQL, THREAD_WAIT, VIEW_INFLATION, VIEW_LAYOUT, VIEW_RENDER, VIEW_UPDATE, XPC,
+};
+
+// Type constants
+pub const NONE_TYPE: u64 = 0;
+pub const CORE_DATA_TYPE: u64 = 2004;
+pub const FILE_IO_TYPE: u64 = 2001;
+pub const IMAGE_DECODE_TYPE: u64 = 2002;
+pub const JSON_DECODE_TYPE: u64 = 2003;
+pub const REGEX_TYPE: u64 = 2007;
+pub const VIEW_TYPE: u64 = 2006;
+pub const FRAME_DROP_TYPE: u64 = 2009;
+pub const FRAME_REGRESSION_EXP_TYPE: u64 = 2010;
+pub const FRAME_REGRESSION_TYPE: u64 = 2011;
+
+// Evidence name constants
+pub const EVIDENCE_NAME_DURATION: &str = "Duration";
+pub const EVIDENCE_NAME_FUNCTION: &str = "Suspect function";
+pub const EVIDENCE_NAME_PACKAGE: &str = "Package";
+pub const EVIDENCE_FULLY_QUALIFIED_NAME: &str = "Fully qualified name";
+pub const EVIDENCE_BREAKPOINT: &str = "Breakpoint";
+pub const EVIDENCE_REGRESSION: &str = "Regression";
+
+// Context constants
+pub const CONTEXT_TRACE: &str = "trace";
+
+// Other constants
+pub const PROFILE_ID: &str = "profile_id";
+pub const OCCURRENCE_PAYLOAD: &str = "occurrence";
+
+// FRAME_DROP constant (not defined in detect_frame.rs)
+const FRAME_DROP: &str = "frame_drop";
+
+#[derive(Debug, Clone, Default)]
+pub struct StackTrace {
+    pub frames: Vec<frame::Frame>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Evidence {
+    pub name: String,
+    pub value: String,
+    pub important: bool,
+}
+
+pub struct Occurrence {
+    culprit: String,
+    detection_time: DateTime<Utc>,
+    event: Event,
+    evidence_data: HashMap<String, PyObject>,
+    evidence_display: Vec<Evidence>,
+    fingerprint: Vec<String>,
+    id: String,
+    issue_title: String,
+    level: String,
+    payload_type: String,
+    project_id: u64,
+    resource_id: Option<String>,
+    subtitle: String,
+    r#type: i64,
+
+    // Only use for stats.
+    category: String,
+    duration_ns: u64,
+    sample_count: u64,
+}
+
+pub struct CategoryMetadata {
+    issue_title: &'static str,
+    r#type: u64,
+}
+
+/// Options for detecting exact frames in profiling data.
+#[derive(Debug, Clone, Default)]
+pub struct Event {
+    pub debug_meta: DebugMeta,
+    pub environment: String,
+    pub id: String,
+    pub platform: String,
+    pub project_id: u64,
+    pub received: f64,
+    pub release: Option<String>,
+    pub stacktrace: StackTrace,
+    pub tags: HashMap<String, String>,
+    pub timestamp: DateTime<Utc>,
+}
+
+// Static lazy HashMap for issue titles
+pub static ISSUE_TITLES: Lazy<HashMap<&'static str, CategoryMetadata>> = Lazy::new(|| {
+    HashMap::from([
+        (
+            BASE64_DECODE,
+            CategoryMetadata {
+                issue_title: "Base64 Decode on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            BASE64_ENCODE,
+            CategoryMetadata {
+                issue_title: "Base64 Encode on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            COMPRESSION,
+            CategoryMetadata {
+                issue_title: "Compression on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            CORE_DATA_BLOCK,
+            CategoryMetadata {
+                issue_title: "Object Context operation on Main Thread",
+                r#type: CORE_DATA_TYPE,
+            },
+        ),
+        (
+            CORE_DATA_MERGE,
+            CategoryMetadata {
+                issue_title: "Object Context operation on Main Thread",
+                r#type: CORE_DATA_TYPE,
+            },
+        ),
+        (
+            CORE_DATA_READ,
+            CategoryMetadata {
+                issue_title: "Object Context operation on Main Thread",
+                r#type: CORE_DATA_TYPE,
+            },
+        ),
+        (
+            CORE_DATA_WRITE,
+            CategoryMetadata {
+                issue_title: "Object Context operation on Main Thread",
+                r#type: CORE_DATA_TYPE,
+            },
+        ),
+        (
+            DECOMPRESSION,
+            CategoryMetadata {
+                issue_title: "Decompression on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            FILE_READ,
+            CategoryMetadata {
+                issue_title: "File I/O on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            FILE_WRITE,
+            CategoryMetadata {
+                issue_title: "File I/O on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            FRAME_DROP,
+            CategoryMetadata {
+                issue_title: "Frame Drop",
+                r#type: FRAME_DROP_TYPE,
+            },
+        ),
+        (
+            HTTP,
+            CategoryMetadata {
+                issue_title: "Network I/O on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            IMAGE_DECODE,
+            CategoryMetadata {
+                issue_title: "Image Decoding on Main Thread",
+                r#type: IMAGE_DECODE_TYPE,
+            },
+        ),
+        (
+            IMAGE_ENCODE,
+            CategoryMetadata {
+                issue_title: "Image Encoding on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            JSON_DECODE,
+            CategoryMetadata {
+                issue_title: "JSON Decoding on Main Thread",
+                r#type: JSON_DECODE_TYPE,
+            },
+        ),
+        (
+            JSON_ENCODE,
+            CategoryMetadata {
+                issue_title: "JSON Encoding on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            ML_MODEL_INFERENCE,
+            CategoryMetadata {
+                issue_title: "Machine Learning inference on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            ML_MODEL_LOAD,
+            CategoryMetadata {
+                issue_title: "Machine Learning model load on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            REGEX,
+            CategoryMetadata {
+                issue_title: "Regex on Main Thread",
+                r#type: REGEX_TYPE,
+            },
+        ),
+        (
+            SQL,
+            CategoryMetadata {
+                issue_title: "SQL operation on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            SOURCE_CONTEXT,
+            CategoryMetadata {
+                issue_title: "Adding Source Context is slow",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            THREAD_WAIT,
+            CategoryMetadata {
+                issue_title: "Thread Wait on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            VIEW_INFLATION,
+            CategoryMetadata {
+                issue_title: "SwiftUI View Inflation is slow",
+                r#type: NONE_TYPE,
+            },
+        ),
+        (
+            VIEW_LAYOUT,
+            CategoryMetadata {
+                issue_title: "SwiftUI View Layout is slow",
+                r#type: VIEW_TYPE,
+            },
+        ),
+        (
+            VIEW_RENDER,
+            CategoryMetadata {
+                issue_title: "SwiftUI View Render is slow",
+                r#type: VIEW_TYPE,
+            },
+        ),
+        (
+            VIEW_UPDATE,
+            CategoryMetadata {
+                issue_title: "SwiftUI View Update is slow",
+                r#type: VIEW_TYPE,
+            },
+        ),
+        (
+            XPC,
+            CategoryMetadata {
+                issue_title: "XPC operation on Main Thread",
+                r#type: NONE_TYPE,
+            },
+        ),
+    ])
+});
+
+/// Generates evidence data for an occurrence.
+/// Converts the Go generateEvidenceData function to Rust equivalent.
+pub fn generate_evidence_data<P: ProfileInterface>(
+    profile: &P,
+    node_info: &NodeInfo,
+) -> HashMap<String, PyObject> {
+    Python::with_gil(|py| {
+        let transaction = profile.get_transaction();
+        let mut evidence_data: HashMap<String, PyObject> = HashMap::new();
+        // Basic evidence data
+        evidence_data.insert(
+            "frame_duration_ns".to_string(),
+            node_info.node.duration_ns.into_pyobject(py).unwrap().into(),
+        );
+        evidence_data.insert(
+            "frame_module".to_string(),
+            node_info
+                .node
+                .frame
+                .module
+                .clone()
+                .into_pyobject(py)
+                .unwrap()
+                .into(),
+        ); // Using package as module
+        evidence_data.insert(
+            "frame_name".to_string(),
+            node_info
+                .node
+                .name
+                .clone()
+                .into_pyobject(py)
+                .unwrap()
+                .into(),
+        );
+        evidence_data.insert(
+            "frame_package".to_string(),
+            node_info
+                .node
+                .frame
+                .package
+                .clone()
+                .into_pyobject(py)
+                .unwrap()
+                .into(),
+        );
+        evidence_data.insert(
+            "profile_duration_ns".to_string(),
+            profile.duration_ns().into_pyobject(py).unwrap().into(),
+        );
+        evidence_data.insert(
+            "template_name".to_string(),
+            "profile".into_pyobject(py).unwrap().into(),
+        );
+        evidence_data.insert(
+            "transaction_id".to_string(),
+            transaction.id.clone().into_pyobject(py).unwrap().into(),
+        );
+        evidence_data.insert(
+            "transaction_name".to_string(),
+            transaction.name.clone().into_pyobject(py).unwrap().into(),
+        );
+        evidence_data.insert(
+            PROFILE_ID.to_string(),
+            profile.get_profile_id().into_pyobject(py).unwrap().into(),
+        );
+
+        // Special handling based on category and platform
+        match node_info.category.as_str() {
+            FRAME_DROP => {}
+            _ => {
+                if profile.get_platform() == Platform::Android {
+                    evidence_data.insert(
+                        "sample_count".to_string(),
+                        node_info
+                            .node
+                            .sample_count
+                            .into_pyobject(py)
+                            .unwrap()
+                            .into(),
+                    );
+                }
+            }
+        }
+
+        evidence_data
+    })
+}
+
+/// Rounds a given Duration to the nearest multiple of another Duration.
+///
+/// # Arguments
+///
+/// * `duration` - The Duration to be rounded.
+/// * `multiple` - The Duration multiple to round to.
+///
+/// # Returns
+///
+/// A new Duration rounded to the nearest multiple of `multiple`.
+pub fn round_duration_to_nearest_multiple(duration: Duration, multiple: Duration) -> Duration {
+    if multiple.as_nanos() == 0 {
+        return duration;
+    }
+
+    // Convert to a common unit (nanoseconds)
+    let duration_nanos = duration.as_nanos();
+    let multiple_nanos = multiple.as_nanos();
+
+    // Calculate the number of multiples
+    // We cast to f64 for accurate floating-point division and rounding
+    let num_multiples = duration_nanos as f64 / multiple_nanos as f64;
+
+    // Round the number of multiples
+    let rounded_num_multiples = num_multiples.round();
+
+    // Convert back to Duration
+    let rounded_nanos = (rounded_num_multiples * multiple_nanos as f64) as u128;
+
+    Duration::from_nanos(rounded_nanos as u64)
+}
+
+/// Generates evidence display for an occurrence.
+pub fn generate_evidence_display<P: ProfileInterface>(
+    profile: &P,
+    node_info: &NodeInfo,
+) -> Vec<Evidence> {
+    let mut evidence_display = vec![
+        Evidence {
+            important: true,
+            name: EVIDENCE_NAME_FUNCTION.to_string(),
+            value: node_info.node.name.clone(),
+        },
+        Evidence {
+            important: false,
+            name: EVIDENCE_NAME_PACKAGE.to_string(),
+            value: node_info.node.package.clone(),
+        },
+    ];
+
+    match node_info.category.as_str() {
+        FRAME_DROP => {}
+        _ => {
+            // Calculate duration and percentage
+            let profile_percentage =
+                (node_info.node.duration_ns as f64 * 100.0) / profile.duration_ns() as f64;
+            let duration = round_duration_to_nearest_multiple(
+                Duration::from_nanos(node_info.node.duration_ns),
+                Duration::from_micros(10),
+            );
+
+            let duration_str = match profile.get_platform() {
+                Platform::Android => {
+                    format!("{:?} ({:.2}% of the profile)", duration, profile_percentage)
+                }
+                _ => {
+                    format!(
+                        "{:?} ({:.2}% of the profile, found in {} samples)",
+                        duration, profile_percentage, node_info.node.sample_count
+                    )
+                }
+            };
+
+            evidence_display.push(Evidence {
+                important: false,
+                name: EVIDENCE_NAME_DURATION.to_string(),
+                value: duration_str,
+            });
+        }
+    }
+
+    evidence_display
+}
+
+/// Normalizes an Android stack trace by stripping package names from full method names.
+pub fn normalize_android_stack_trace(st: &mut Vec<frame::Frame>) {
+    for frame in st {
+        if let (Some(function), Some(package)) = (&frame.function, &frame.package) {
+            frame.function = Some(android::strip_package_name_from_full_method_name(
+                function, package,
+            ));
+        }
+    }
+}
+
+/// Generates a unique event ID.
+fn event_id() -> String {
+    Uuid::new_v4().to_string().replace("-", "")
+}
+
+/// Creates a new occurrence from profile data and node information.
+/// This is the Rust equivalent of the Go NewOccurrence function.
+pub fn new_occurrence<P: ProfileInterface>(profile: &P, mut ni: NodeInfo) -> Occurrence {
+    let transaction = profile.get_transaction();
+
+    // Look up issue title and type
+    let (issue_type, title) = if let Some(cm) = ISSUE_TITLES.get(ni.category.as_str()) {
+        (cm.r#type, cm.issue_title.to_string())
+    } else {
+        (NONE_TYPE, format!("{} issue detected", ni.category))
+    };
+
+    let mut platform = profile.get_platform();
+
+    // Handle Android platform special case
+    if platform == Platform::Android {
+        platform = Platform::Java;
+        normalize_android_stack_trace(&mut ni.stack_trace);
+        ni.node.name =
+            android::strip_package_name_from_full_method_name(&ni.node.name, &ni.node.package);
+    }
+
+    // Create fingerprint using MD5 hash
+    let mut hasher = md5::Context::new();
+    hasher.consume(profile.get_project_id().to_string().as_bytes());
+    hasher.consume(title.as_bytes());
+    hasher.consume(issue_type.to_string().as_bytes());
+    hasher.consume(ni.node.frame.module_or_package().as_bytes());
+    hasher.consume(ni.node.name.as_bytes());
+    let fingerprint = format!("{:x}", hasher.compute());
+
+    // Get transaction tags or create empty map
+    let tags = profile.get_transaction_tags().clone();
+
+    let event = Event {
+        debug_meta: profile.get_debug_meta().clone(),
+        environment: profile.get_environment().unwrap_or("").to_string(),
+        id: event_id(),
+        platform: platform.to_string(),
+        project_id: profile.get_project_id(),
+        received: profile.get_received(),
+        release: profile.get_release().map(|s| s.to_string()),
+        stacktrace: StackTrace {
+            frames: ni.stack_trace.clone(),
+        },
+        tags,
+        timestamp: profile.get_timestamp(),
+    };
+
+    Occurrence {
+        culprit: transaction.name.clone(),
+        detection_time: chrono::Utc::now(),
+        event,
+        evidence_data: generate_evidence_data(profile, &ni),
+        evidence_display: generate_evidence_display(profile, &ni),
+        fingerprint: vec![fingerprint],
+        id: event_id(),
+        issue_title: title,
+        level: "info".to_string(),
+        payload_type: OCCURRENCE_PAYLOAD.to_string(),
+        project_id: profile.get_project_id(),
+        resource_id: None,
+        subtitle: ni.node.name,
+        r#type: issue_type as i64,
+
+        // Stats fields
+        category: ni.category,
+        duration_ns: ni.node.duration_ns,
+        sample_count: ni.node.sample_count,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_round_duration_to_nearest_multiple() {
+        struct TestCase {
+            name: String,
+            duration: Duration,
+            multiple: Duration,
+            expected: Duration,
+        }
+
+        let test_cases = [
+            TestCase {
+                name: "round_up".to_string(),
+                duration: Duration::from_secs_f64(1.7),
+                multiple: Duration::from_secs(1),
+                expected: Duration::from_secs(2),
+            },
+            TestCase {
+                name: "round_down".to_string(),
+                duration: Duration::from_secs_f64(1.3),
+                multiple: Duration::from_secs(1),
+                expected: Duration::from_secs(1),
+            },
+            TestCase {
+                name: "exact_multiple".to_string(),
+                duration: Duration::from_secs(5),
+                multiple: Duration::from_secs(1),
+                expected: Duration::from_secs(5),
+            },
+            TestCase {
+                name: "halfway_round_up".to_string(),
+                duration: Duration::from_millis(150),
+                multiple: Duration::from_millis(100),
+                expected: Duration::from_millis(200),
+            },
+            TestCase {
+                name: "smaller_duration_than_multiple".to_string(),
+                duration: Duration::from_millis(30),
+                multiple: Duration::from_millis(100),
+                expected: Duration::from_millis(0),
+            },
+            TestCase {
+                name: "larger_duration_than_multiple".to_string(),
+                duration: Duration::from_secs(10),
+                multiple: Duration::from_secs(3),
+                expected: Duration::from_secs(9),
+            },
+            TestCase {
+                name: "with_zero_duration".to_string(),
+                duration: Duration::from_secs(0),
+                multiple: Duration::from_secs(10),
+                expected: Duration::from_secs(0),
+            },
+            TestCase {
+                name: "with_zero_multiple".to_string(),
+                duration: Duration::from_secs(5),
+                multiple: Duration::from_secs(0),
+                expected: Duration::from_secs(5),
+            },
+        ];
+
+        for test_case in test_cases {
+            let result = round_duration_to_nearest_multiple(test_case.duration, test_case.multiple);
+            assert_eq!(
+                result, test_case.expected,
+                "Test case '{}' failed: expected {:?}, got {:?}",
+                test_case.name, test_case.expected, result
+            );
+        }
+    }
+
+    #[test]
+    fn test_normalize_android_stack_trace() {
+        struct TestCase {
+            name: String,
+            input: Vec<frame::Frame>,
+            output: Vec<frame::Frame>,
+        }
+
+        let tests = vec![TestCase {
+            name: "Normalize Android stack trace".to_string(),
+            input: vec![frame::Frame {
+                package: Some("com.google.gson".to_string()),
+                function: Some("com.google.gson.JSONDecode.decode()".to_string()),
+                ..Default::default()
+            }],
+            output: vec![frame::Frame {
+                package: Some("com.google.gson".to_string()),
+                function: Some("JSONDecode.decode()".to_string()),
+                ..Default::default()
+            }],
+        }];
+
+        for mut tt in tests {
+            normalize_android_stack_trace(&mut tt.input);
+            assert_eq!(tt.input, tt.output, "Test '{}' failed", tt.name);
+        }
+    }
+}
