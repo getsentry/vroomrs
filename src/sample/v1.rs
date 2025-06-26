@@ -382,8 +382,8 @@ impl ProfileInterface for SampleProfile {
         self.retention_days
     }
 
-    fn get_timestamp(&self) -> f64 {
-        self.timestamp.timestamp_micros() as f64 / 1_000_000.0
+    fn get_timestamp(&self) -> DateTime<Utc> {
+        self.timestamp
     }
 
     fn normalize(&mut self) {
@@ -533,6 +533,14 @@ impl ProfileInterface for SampleProfile {
 
     fn get_transaction(&self) -> Cow<Transaction> {
         Cow::Borrowed(&self.transaction)
+    }
+
+    fn get_transaction_tags(&self) -> &HashMap<String, String> {
+        &self.transaction_tags
+    }
+
+    fn get_debug_meta(&self) -> &DebugMeta {
+        &self.debug_meta
     }
 }
 

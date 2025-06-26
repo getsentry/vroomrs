@@ -144,8 +144,8 @@ impl ProfileInterface for AndroidProfile {
         self.retention_days
     }
 
-    fn get_timestamp(&self) -> f64 {
-        self.timestamp.timestamp_micros() as f64 / 1_000_000.0
+    fn get_timestamp(&self) -> DateTime<Utc> {
+        self.timestamp
     }
 
     fn normalize(&mut self) {
@@ -253,6 +253,14 @@ impl ProfileInterface for AndroidProfile {
                 .as_ref()
                 .map_or("".to_string(), |segment| segment.clone()),
         })
+    }
+
+    fn get_transaction_tags(&self) -> &HashMap<String, String> {
+        &self.transaction_tags
+    }
+
+    fn get_debug_meta(&self) -> &DebugMeta {
+        &self.debug_meta
     }
 }
 
