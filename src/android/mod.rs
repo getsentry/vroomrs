@@ -142,8 +142,8 @@ impl AndroidMethod {
     }
 }
 
-fn strip_package_name_from_full_method_name(full_name: &str, package: &str) -> String {
-    let prefix = format!("{}.", package);
+pub(crate) fn strip_package_name_from_full_method_name(full_name: &str, package: &str) -> String {
+    let prefix = format!("{package}.");
     full_name
         .strip_prefix(&prefix)
         .unwrap_or(full_name)

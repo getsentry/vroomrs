@@ -144,8 +144,8 @@ impl ProfileInterface for AndroidProfile {
         self.retention_days
     }
 
-    fn get_timestamp(&self) -> f64 {
-        self.timestamp.timestamp_micros() as f64 / 1_000_000.0
+    fn get_timestamp(&self) -> DateTime<Utc> {
+        self.timestamp
     }
 
     fn normalize(&mut self) {
@@ -254,6 +254,14 @@ impl ProfileInterface for AndroidProfile {
                 .map_or("".to_string(), |segment| segment.clone()),
         })
     }
+
+    fn get_transaction_tags(&self) -> &HashMap<String, String> {
+        &self.transaction_tags
+    }
+
+    fn get_debug_meta(&self) -> &DebugMeta {
+        &self.debug_meta
+    }
 }
 
 // CallTree generation expect activeThreadID to be set in
@@ -296,7 +304,7 @@ mod tests {
         let payload = include_bytes!("../../tests/fixtures/android/profile/valid.json");
         let d = &mut serde_json::Deserializer::from_slice(payload);
         let r: Result<AndroidProfile, Error<_>> = serde_path_to_error::deserialize(d);
-        assert!(r.is_ok(), "{:#?}", r)
+        assert!(r.is_ok(), "{r:#?}")
     }
 
     #[test]

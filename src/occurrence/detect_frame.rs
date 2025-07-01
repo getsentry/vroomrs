@@ -1,34 +1,39 @@
 use once_cell::sync::Lazy;
 use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Duration};
 
-use crate::{frame::Frame, nodetree::Node, types::Platform, MAX_STACK_DEPTH};
+use crate::{
+    frame::Frame,
+    nodetree::Node,
+    types::{CallTreesU64, Platform, ProfileInterface},
+    MAX_STACK_DEPTH,
+};
 
-const BASE64_DECODE: &str = "base64_decode";
-const BASE64_ENCODE: &str = "base64_encode";
-const COMPRESSION: &str = "compression";
-const CORE_DATA_BLOCK: &str = "core_data_block";
-const CORE_DATA_MERGE: &str = "core_data_merge";
-const CORE_DATA_READ: &str = "core_data_read";
-const CORE_DATA_WRITE: &str = "core_data_write";
-const DECOMPRESSION: &str = "decompression";
-const FILE_READ: &str = "file_read";
-const FILE_WRITE: &str = "file_write";
-const HTTP: &str = "http";
-const IMAGE_DECODE: &str = "image_decode";
-const IMAGE_ENCODE: &str = "image_encode";
-const JSON_DECODE: &str = "json_decode";
-const JSON_ENCODE: &str = "json_encode";
-const ML_MODEL_INFERENCE: &str = "ml_model_inference";
-const ML_MODEL_LOAD: &str = "ml_model_load";
-const REGEX: &str = "regex";
-const SQL: &str = "sql";
-const SOURCE_CONTEXT: &str = "source_context";
-const THREAD_WAIT: &str = "thread_wait";
-const VIEW_INFLATION: &str = "view_inflation";
-const VIEW_LAYOUT: &str = "view_layout";
-const VIEW_RENDER: &str = "view_render";
-const VIEW_UPDATE: &str = "view_update";
-const XPC: &str = "xpc";
+pub(crate) const BASE64_DECODE: &str = "base64_decode";
+pub(crate) const BASE64_ENCODE: &str = "base64_encode";
+pub(crate) const COMPRESSION: &str = "compression";
+pub(crate) const CORE_DATA_BLOCK: &str = "core_data_block";
+pub(crate) const CORE_DATA_MERGE: &str = "core_data_merge";
+pub(crate) const CORE_DATA_READ: &str = "core_data_read";
+pub(crate) const CORE_DATA_WRITE: &str = "core_data_write";
+pub(crate) const DECOMPRESSION: &str = "decompression";
+pub(crate) const FILE_READ: &str = "file_read";
+pub(crate) const FILE_WRITE: &str = "file_write";
+pub(crate) const HTTP: &str = "http";
+pub(crate) const IMAGE_DECODE: &str = "image_decode";
+pub(crate) const IMAGE_ENCODE: &str = "image_encode";
+pub(crate) const JSON_DECODE: &str = "json_decode";
+pub(crate) const JSON_ENCODE: &str = "json_encode";
+pub(crate) const ML_MODEL_INFERENCE: &str = "ml_model_inference";
+pub(crate) const ML_MODEL_LOAD: &str = "ml_model_load";
+pub(crate) const REGEX: &str = "regex";
+pub(crate) const SQL: &str = "sql";
+pub(crate) const SOURCE_CONTEXT: &str = "source_context";
+pub(crate) const THREAD_WAIT: &str = "thread_wait";
+pub(crate) const VIEW_INFLATION: &str = "view_inflation";
+pub(crate) const VIEW_LAYOUT: &str = "view_layout";
+pub(crate) const VIEW_RENDER: &str = "view_render";
+pub(crate) const VIEW_UPDATE: &str = "view_update";
+pub(crate) const XPC: &str = "xpc";
 
 /// Trait for frame detection options with configurable behavior.
 pub trait DetectFrameOptions {
@@ -546,6 +551,41 @@ fn detect_frame_in_node(
     stack_trace.pop();
 
     result
+}
+
+/// Detects occurrence of an issue based by matching frames of the profile on a list of frames.
+/// This is the Rust equivalent of the Go detectFrame function.
+pub fn detect_frame<P: ProfileInterface>(
+    profile: &P,
+    call_trees_per_thread_id: &CallTreesU64,
+    options: &dyn DetectFrameOptions,
+    occurrences: &mut Vec<super::Occurrence>,
+) {
+    // List nodes matching criteria
+    let mut nodes: HashMap<NodeKey, NodeInfo> = HashMap::new();
+
+    if options.only_check_active_thread() {
+        let active_thread_id = profile.get_transaction().active_thread_id;
+        if let Some(call_trees) = call_trees_per_thread_id.get(&active_thread_id) {
+            for root in call_trees {
+                detect_frame_in_call_tree(root, options, &mut nodes);
+            }
+        } else {
+            // slog.Debug ignored as requested
+            return;
+        }
+    } else {
+        for call_trees in call_trees_per_thread_id.values() {
+            for root in call_trees {
+                detect_frame_in_call_tree(root, options, &mut nodes);
+            }
+        }
+    }
+
+    // Create occurrences
+    for node_info in nodes.into_values() {
+        occurrences.push(super::new_occurrence(profile, node_info));
+    }
 }
 
 #[cfg(test)]

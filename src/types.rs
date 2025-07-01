@@ -94,7 +94,7 @@ impl std::ops::Deref for ClientSDK {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct DebugMeta {
     pub images: Option<Vec<Image>>,
 }
@@ -119,7 +119,7 @@ impl fmt::Display for CallTreeError {
                 SampleError::InvalidFrameId => write!(f, "invalid frame id"),
             },
             CallTreeError::Android(android_error) => match android_error {
-                AndroidError::FillSampleMetadataError(error) => write!(f, "{}", error),
+                AndroidError::FillSampleMetadataError(error) => write!(f, "{error}"),
             },
         }
     }
@@ -224,7 +224,7 @@ pub trait ProfileInterface {
     fn get_received(&self) -> f64;
     fn get_release(&self) -> Option<&str>;
     fn get_retention_days(&self) -> i32;
-    fn get_timestamp(&self) -> f64;
+    fn get_timestamp(&self) -> DateTime<Utc>;
     fn normalize(&mut self);
     fn call_trees(&mut self) -> Result<CallTreesU64, CallTreeError>;
     fn storage_path(&self) -> String;
@@ -232,6 +232,8 @@ pub trait ProfileInterface {
     fn sdk_version(&self) -> Option<&str>;
     fn duration_ns(&self) -> u64;
     fn get_transaction(&self) -> Cow<Transaction>;
+    fn get_transaction_tags(&self) -> &HashMap<String, String>;
+    fn get_debug_meta(&self) -> &DebugMeta;
 
     /// Serialize the given data structure as a JSON byte vector.
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;
