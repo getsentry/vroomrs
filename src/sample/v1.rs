@@ -562,7 +562,7 @@ mod tests {
         let payload = include_bytes!("../../tests/fixtures/sample/v1/valid_cocoa.json");
         let d = &mut serde_json::Deserializer::from_slice(payload);
         let r: Result<SampleProfile, Error<_>> = serde_path_to_error::deserialize(d);
-        assert!(r.is_ok(), "{:#?}", r)
+        assert!(r.is_ok(), "{r:#?}")
     }
 
     #[test]
@@ -570,7 +570,7 @@ mod tests {
         let payload = include_bytes!("../../tests/fixtures/sample/v1/valid_python.json");
         let d = &mut serde_json::Deserializer::from_slice(payload);
         let r: Result<SampleProfile, Error<_>> = serde_path_to_error::deserialize(d);
-        assert!(r.is_ok(), "{:#?}", r)
+        assert!(r.is_ok(), "{r:#?}")
     }
 
     #[test]

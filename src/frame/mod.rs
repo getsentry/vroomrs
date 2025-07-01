@@ -356,9 +356,7 @@ mod tests {
                 frame: Frame {
                     function: Some("main".to_string()),
                     status: Some("symbolicated".to_string()),
-                    package: Some(format!("/Users/runner/Library/Developer/CoreSimulator/Devices/{}/data/Containers/Bundle/Application/{}/iOS-Swift.app/Frameworks/libclang_rt.asan_iossim_dynamic.dylib",
-                        OCK_UUID,
-                        OCK_UUID,
+                    package: Some(format!("/Users/runner/Library/Developer/CoreSimulator/Devices/{OCK_UUID}/data/Containers/Bundle/Application/{OCK_UUID}/iOS-Swift.app/Frameworks/libclang_rt.asan_iossim_dynamic.dylib",
                         )
                     ),
                     ..Default::default()
@@ -369,9 +367,7 @@ mod tests {
                 name: "main must be symbolicated".to_string(),
                 frame: Frame {
                     function: Some("main".to_string()),
-                    package: Some(format!("/Users/runner/Library/Developer/CoreSimulator/Devices/{}/data/Containers/Bundle/Application/{}/iOS-Swift.app/Frameworks/libclang_rt.asan_iossim_dynamic.dylib",
-                        OCK_UUID,
-                        OCK_UUID,
+                    package: Some(format!("/Users/runner/Library/Developer/CoreSimulator/Devices/{OCK_UUID}/data/Containers/Bundle/Application/{OCK_UUID}/iOS-Swift.app/Frameworks/libclang_rt.asan_iossim_dynamic.dylib",
                         )
                     ),
                     ..Default::default()
@@ -382,9 +378,7 @@ mod tests {
                 name: "__sanitizer::StackDepotNode::store(unsigned int, __sanitizer::StackTrace const&, unsigned long long)".to_string(),
                 frame: Frame {
                     function: Some("__sanitizer::StackDepotNode::store(unsigned int, __sanitizer::StackTrace const&, unsigned long long)".to_string()),
-                    package: Some(format!("/Users/runner/Library/Developer/CoreSimulator/Devices/{}/data/Containers/Bundle/Application/{}/iOS-Swift.app/Frameworks/libclang_rt.asan_iossim_dynamic.dylib",
-                        OCK_UUID,
-                        OCK_UUID,
+                    package: Some(format!("/Users/runner/Library/Developer/CoreSimulator/Devices/{OCK_UUID}/data/Containers/Bundle/Application/{OCK_UUID}/iOS-Swift.app/Frameworks/libclang_rt.asan_iossim_dynamic.dylib",
                         )
                     ),
                     ..Default::default()

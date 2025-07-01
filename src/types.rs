@@ -119,7 +119,7 @@ impl fmt::Display for CallTreeError {
                 SampleError::InvalidFrameId => write!(f, "invalid frame id"),
             },
             CallTreeError::Android(android_error) => match android_error {
-                AndroidError::FillSampleMetadataError(error) => write!(f, "{}", error),
+                AndroidError::FillSampleMetadataError(error) => write!(f, "{error}"),
             },
         }
     }

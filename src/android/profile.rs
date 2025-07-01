@@ -304,7 +304,7 @@ mod tests {
         let payload = include_bytes!("../../tests/fixtures/android/profile/valid.json");
         let d = &mut serde_json::Deserializer::from_slice(payload);
         let r: Result<AndroidProfile, Error<_>> = serde_path_to_error::deserialize(d);
-        assert!(r.is_ok(), "{:#?}", r)
+        assert!(r.is_ok(), "{r:#?}")
     }
 
     #[test]
