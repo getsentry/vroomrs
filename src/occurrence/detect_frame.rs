@@ -571,7 +571,6 @@ pub fn detect_frame<P: ProfileInterface>(
                 detect_frame_in_call_tree(root, options, &mut nodes);
             }
         } else {
-            // slog.Debug ignored as requested
             return;
         }
     } else {
