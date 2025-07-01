@@ -1,7 +1,12 @@
 use once_cell::sync::Lazy;
 use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Duration};
 
-use crate::{frame::Frame, nodetree::Node, types::Platform, MAX_STACK_DEPTH};
+use crate::{
+    frame::Frame,
+    nodetree::Node,
+    types::{CallTreesU64, Platform, ProfileInterface},
+    MAX_STACK_DEPTH,
+};
 
 pub(crate) const BASE64_DECODE: &str = "base64_decode";
 pub(crate) const BASE64_ENCODE: &str = "base64_encode";
@@ -546,6 +551,41 @@ fn detect_frame_in_node(
     stack_trace.pop();
 
     result
+}
+
+/// Detects occurrence of an issue based by matching frames of the profile on a list of frames.
+/// This is the Rust equivalent of the Go detectFrame function.
+pub fn detect_frame<P: ProfileInterface>(
+    profile: &P,
+    call_trees_per_thread_id: &CallTreesU64,
+    options: &dyn DetectFrameOptions,
+    occurrences: &mut Vec<super::Occurrence>,
+) {
+    // List nodes matching criteria
+    let mut nodes: HashMap<NodeKey, NodeInfo> = HashMap::new();
+
+    if options.only_check_active_thread() {
+        let active_thread_id = profile.get_transaction().active_thread_id;
+        if let Some(call_trees) = call_trees_per_thread_id.get(&active_thread_id) {
+            for root in call_trees {
+                detect_frame_in_call_tree(root, options, &mut nodes);
+            }
+        } else {
+            // slog.Debug ignored as requested
+            return;
+        }
+    } else {
+        for call_trees in call_trees_per_thread_id.values() {
+            for root in call_trees {
+                detect_frame_in_call_tree(root, options, &mut nodes);
+            }
+        }
+    }
+
+    // Create occurrences
+    for node_info in nodes.into_values() {
+        occurrences.push(super::new_occurrence(profile, node_info));
+    }
 }
 
 #[cfg(test)]

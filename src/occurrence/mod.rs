@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use chrono::{Date, DateTime, Utc};
 use once_cell::sync::Lazy;
-use pyo3::{IntoPyObject, PyObject, Python};
+use pyo3::{pyclass, IntoPyObject, PyObject, Python};
 use uuid::Uuid;
 
 use crate::{
     android, frame,
-    types::{DebugMeta, Platform, ProfileInterface},
+    types::{CallTreesU64, DebugMeta, Platform, ProfileInterface},
 };
 
 mod detect_frame;
@@ -63,26 +63,28 @@ pub struct Evidence {
     pub important: bool,
 }
 
+#[pyclass]
+#[derive(Debug)]
 pub struct Occurrence {
-    culprit: String,
-    detection_time: DateTime<Utc>,
-    event: Event,
-    evidence_data: HashMap<String, PyObject>,
-    evidence_display: Vec<Evidence>,
-    fingerprint: Vec<String>,
-    id: String,
-    issue_title: String,
-    level: String,
-    payload_type: String,
-    project_id: u64,
-    resource_id: Option<String>,
-    subtitle: String,
-    r#type: i64,
+    pub culprit: String,
+    pub detection_time: DateTime<Utc>,
+    pub event: Event,
+    pub evidence_data: HashMap<String, PyObject>,
+    pub evidence_display: Vec<Evidence>,
+    pub fingerprint: Vec<String>,
+    pub id: String,
+    pub issue_title: String,
+    pub level: String,
+    pub payload_type: String,
+    pub project_id: u64,
+    pub resource_id: Option<String>,
+    pub subtitle: String,
+    pub r#type: i64,
 
     // Only use for stats.
-    category: String,
-    duration_ns: u64,
-    sample_count: u64,
+    pub category: String,
+    pub duration_ns: u64,
+    pub sample_count: u64,
 }
 
 pub struct CategoryMetadata {
@@ -98,7 +100,7 @@ pub struct Event {
     pub event_id: String,
     pub platform: String,
     pub project_id: u64,
-    pub received: f64,
+    pub received: DateTime<Utc>,
     pub release: Option<String>,
     pub stacktrace: StackTrace,
     pub tags: HashMap<String, String>,
@@ -526,10 +528,11 @@ pub fn new_occurrence<P: ProfileInterface>(profile: &P, mut ni: NodeInfo) -> Occ
     let event = Event {
         debug_meta: profile.get_debug_meta().clone(),
         environment: profile.get_environment().unwrap_or("").to_string(),
-        id: event_id(),
+        event_id: event_id(),
         platform: platform.to_string(),
         project_id: profile.get_project_id(),
-        received: profile.get_received(),
+        received: DateTime::from_timestamp_micros((profile.get_received() * 1e6) as i64)
+            .expect("timestamp out of range"),
         release: profile.get_release().map(|s| s.to_string()),
         stacktrace: StackTrace {
             frames: ni.stack_trace.clone(),
@@ -559,6 +562,51 @@ pub fn new_occurrence<P: ProfileInterface>(profile: &P, mut ni: NodeInfo) -> Occ
         duration_ns: ni.node.duration_ns,
         sample_count: ni.node.sample_count,
     }
+}
+
+/// Placeholder function for finding frame drop causes.
+/// TODO: Implement the actual frame drop detection logic.
+pub fn find_frame_drop_cause<P: ProfileInterface>(
+    _profile: &P,
+    _call_trees: &CallTreesU64,
+    _occurrences: &mut Vec<Occurrence>,
+) {
+    // Placeholder implementation
+    // This would contain the frame drop detection logic
+}
+
+/// Finds occurrences in the given profile and call trees.
+/// This is the Rust equivalent of the Go Find function.
+pub fn find<P: ProfileInterface>(profile: &P, call_trees: &CallTreesU64) -> Vec<Occurrence> {
+    let mut occurrences = Vec::new();
+
+    // Look up detection jobs for this platform
+    if let Some(jobs) = detect_frame::DETECT_FRAME_JOBS.get(&profile.get_platform()) {
+        for job in jobs {
+            // Apply each detection job to the call trees
+            for (_thread_id, call_trees_for_thread) in call_trees {
+                for call_tree in call_trees_for_thread {
+                    let mut detected_nodes = HashMap::new();
+                    detect_frame::detect_frame_in_call_tree(
+                        call_tree,
+                        job.as_ref(),
+                        &mut detected_nodes,
+                    );
+
+                    // Convert detected nodes to occurrences
+                    for (_key, node_info) in detected_nodes {
+                        let occurrence = new_occurrence(profile, node_info);
+                        occurrences.push(occurrence);
+                    }
+                }
+            }
+        }
+    }
+
+    // Find frame drop causes
+    find_frame_drop_cause(profile, call_trees, &mut occurrences);
+
+    occurrences
 }
 
 #[cfg(test)]
