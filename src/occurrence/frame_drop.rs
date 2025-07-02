@@ -214,3 +214,67 @@ pub fn find_frame_drop_cause<P: ProfileInterface>(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Duration};
+
+    use crate::{
+        frame::Frame,
+        nodetree::Node,
+        occurrence::detect_frame::{
+            detect_frame_in_call_tree, DetectAndroidFrameOptions, DetectExactFrameOptions,
+            DetectFrameOptions, NodeInfo, NodeKey, FILE_READ, IMAGE_DECODE,
+        },
+    };
+
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_is_node_stack_valid() {
+        use super::*;
+
+        struct TestCase {
+            name: String,
+            stats: FrozenFrameStats,
+            nodestack: NodeStack,
+            valid: bool,
+        }
+
+        let tests = vec![TestCase {
+            name: "frame too short".to_string(),
+            stats: FrozenFrameStats {
+                start_limit_ns: 0,
+                duration_ns: 1000,
+                min_duration_ns: 500,
+                start_ns: 0,
+                end_ns: 1000,
+            },
+            nodestack: NodeStack {
+                depth: 0,
+                n: Node {
+                    start_ns: 100,
+                    end_ns: 200,
+                    is_application: true,
+                    duration_ns: 100,
+                    frame: Frame {
+                        function: Some("test_function".to_string()),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                st: Vec::new(),
+            },
+            valid: false,
+        }];
+
+        for tt in tests {
+            let output = tt.stats.is_node_stack_valid(&tt.nodestack);
+            assert_eq!(
+                output, tt.valid,
+                "Test '{}': expected {}, got {}",
+                tt.name, tt.valid, output
+            );
+        }
+    }
+}
