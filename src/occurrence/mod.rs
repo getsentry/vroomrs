@@ -4,10 +4,11 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use pyo3::{pyclass, IntoPyObject, PyObject, Python};
+use serde_json::to_string;
 use uuid::Uuid;
 
 use crate::{
-    android, frame,
+    android, frame, occurrence,
     types::{CallTreesU64, DebugMeta, Platform, ProfileInterface},
 };
 
@@ -52,12 +53,12 @@ pub const OCCURRENCE_PAYLOAD: &str = "occurrence";
 // FRAME_DROP constant (not defined in detect_frame.rs)
 const FRAME_DROP: &str = "frame_drop";
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct StackTrace {
     pub frames: Vec<frame::Frame>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Evidence {
     pub name: String,
     pub value: String,
@@ -65,12 +66,26 @@ pub struct Evidence {
 }
 
 #[pyclass]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Default)]
+pub struct EvidenceData {
+    frame_duration_ns: u64,
+    frame_module: String,
+    frame_name: String,
+    frame_package: String,
+    profile_duration_ns: u64,
+    template_name: String,
+    transaction_id: String,
+    transaction_name: String,
+    profile_id: String,
+    sample_count: Option<u64>,
+}
+#[pyclass]
+#[derive(Debug, PartialEq, Default)]
 pub struct Occurrence {
     pub culprit: String,
     pub detection_time: DateTime<Utc>,
     pub event: Event,
-    pub evidence_data: HashMap<String, PyObject>,
+    pub evidence_data: EvidenceData,
     pub evidence_display: Vec<Evidence>,
     pub fingerprint: Vec<String>,
     pub id: String,
@@ -80,21 +95,20 @@ pub struct Occurrence {
     pub project_id: u64,
     pub resource_id: Option<String>,
     pub subtitle: String,
-    pub r#type: i64,
+    pub r#type: u64,
 
     // Only use for stats.
     pub category: String,
     pub duration_ns: u64,
     pub sample_count: u64,
 }
-
 pub struct CategoryMetadata {
     issue_title: &'static str,
     r#type: u64,
 }
 
 /// Options for detecting exact frames in profiling data.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Event {
     pub debug_meta: DebugMeta,
     pub environment: String,
@@ -305,91 +319,47 @@ pub static ISSUE_TITLES: Lazy<HashMap<&'static str, CategoryMetadata>> = Lazy::n
 
 /// Generates evidence data for an occurrence.
 /// Converts the Go generateEvidenceData function to Rust equivalent.
-pub fn generate_evidence_data<P: ProfileInterface>(
-    profile: &P,
+pub fn generate_evidence_data(
+    profile: &dyn ProfileInterface,
     node_info: &NodeInfo,
-) -> HashMap<String, PyObject> {
-    Python::with_gil(|py| {
-        let transaction = profile.get_transaction();
-        let mut evidence_data: HashMap<String, PyObject> = HashMap::new();
-        // Basic evidence data
-        evidence_data.insert(
-            "frame_duration_ns".to_string(),
-            node_info.node.duration_ns.into_pyobject(py).unwrap().into(),
-        );
-        evidence_data.insert(
-            "frame_module".to_string(),
-            node_info
-                .node
-                .frame
-                .module
-                .clone()
-                .into_pyobject(py)
-                .unwrap()
-                .into(),
-        ); // Using package as module
-        evidence_data.insert(
-            "frame_name".to_string(),
-            node_info
-                .node
-                .name
-                .clone()
-                .into_pyobject(py)
-                .unwrap()
-                .into(),
-        );
-        evidence_data.insert(
-            "frame_package".to_string(),
-            node_info
-                .node
-                .frame
-                .package
-                .clone()
-                .into_pyobject(py)
-                .unwrap()
-                .into(),
-        );
-        evidence_data.insert(
-            "profile_duration_ns".to_string(),
-            profile.duration_ns().into_pyobject(py).unwrap().into(),
-        );
-        evidence_data.insert(
-            "template_name".to_string(),
-            "profile".into_pyobject(py).unwrap().into(),
-        );
-        evidence_data.insert(
-            "transaction_id".to_string(),
-            transaction.id.clone().into_pyobject(py).unwrap().into(),
-        );
-        evidence_data.insert(
-            "transaction_name".to_string(),
-            transaction.name.clone().into_pyobject(py).unwrap().into(),
-        );
-        evidence_data.insert(
-            PROFILE_ID.to_string(),
-            profile.get_profile_id().into_pyobject(py).unwrap().into(),
-        );
+) -> EvidenceData {
+    let transaction = profile.get_transaction();
 
-        // Special handling based on category and platform
-        match node_info.category.as_str() {
-            FRAME_DROP => {}
-            _ => {
-                if profile.get_platform() == Platform::Android {
-                    evidence_data.insert(
-                        "sample_count".to_string(),
-                        node_info
-                            .node
-                            .sample_count
-                            .into_pyobject(py)
-                            .unwrap()
-                            .into(),
-                    );
-                }
+    let mut evidence_data = EvidenceData {
+        frame_duration_ns: node_info.node.duration_ns,
+        frame_module: node_info
+            .node
+            .frame
+            .module
+            .as_deref()
+            .unwrap_or("")
+            .to_string(),
+        frame_name: node_info.node.name.clone(),
+        frame_package: node_info
+            .node
+            .frame
+            .package
+            .as_deref()
+            .unwrap_or("")
+            .to_string(),
+        profile_duration_ns: profile.duration_ns(),
+        template_name: "profile".to_string(),
+        transaction_id: transaction.id.clone(),
+        transaction_name: transaction.name.clone(),
+        profile_id: profile.get_profile_id().to_string(),
+        sample_count: None,
+    };
+
+    // Special handling based on category and platform
+    match node_info.category.as_str() {
+        FRAME_DROP => {}
+        _ => {
+            if profile.get_platform() == Platform::Android {
+                evidence_data.sample_count = Some(node_info.node.sample_count);
             }
         }
-
-        evidence_data
-    })
+    }
+    evidence_data
 }
 
 /// Rounds a given Duration to the nearest multiple of another Duration.
@@ -425,8 +395,8 @@ pub fn round_duration_to_nearest_multiple(duration: Duration, multiple: Duration
 }
 
 /// Generates evidence display for an occurrence.
-pub fn generate_evidence_display<P: ProfileInterface>(
-    profile: &P,
+pub fn generate_evidence_display(
+    profile: &dyn ProfileInterface,
     node_info: &NodeInfo,
 ) -> Vec<Evidence> {
     let mut evidence_display = vec![
@@ -494,7 +464,7 @@ fn event_id() -> String {
 
 /// Creates a new occurrence from profile data and node information.
 /// This is the Rust equivalent of the Go NewOccurrence function.
-pub fn new_occurrence<P: ProfileInterface>(profile: &P, mut ni: NodeInfo) -> Occurrence {
+pub fn new_occurrence(profile: &dyn ProfileInterface, mut ni: NodeInfo) -> Occurrence {
     let transaction = profile.get_transaction();
 
     // Look up issue title and type
@@ -556,7 +526,7 @@ pub fn new_occurrence<P: ProfileInterface>(profile: &P, mut ni: NodeInfo) -> Occ
         project_id: profile.get_project_id(),
         resource_id: None,
         subtitle: ni.node.name,
-        r#type: issue_type as i64,
+        r#type: issue_type,
 
         // Stats fields
         category: ni.category,

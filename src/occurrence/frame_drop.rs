@@ -147,8 +147,8 @@ impl FrozenFrameStats {
 ///
 /// This function looks for "frozen_frame_renders" measurements in the profile
 /// and analyzes call trees to identify potential causes of frame drops.
-pub fn find_frame_drop_cause<P: ProfileInterface>(
-    profile: &P,
+pub fn find_frame_drop_cause(
+    profile: &dyn ProfileInterface,
     call_trees_per_thread_id: &CallTreesU64,
     occurrences: &mut Vec<super::Occurrence>,
 ) {
@@ -222,13 +222,18 @@ mod tests {
     use crate::{
         frame::Frame,
         nodetree::Node,
-        occurrence::detect_frame::{
-            detect_frame_in_call_tree, DetectAndroidFrameOptions, DetectExactFrameOptions,
-            DetectFrameOptions, NodeInfo, NodeKey, FILE_READ, IMAGE_DECODE,
+        occurrence::{
+            detect_frame::{
+                detect_frame_in_call_tree, DetectAndroidFrameOptions, DetectExactFrameOptions,
+                DetectFrameOptions, NodeInfo, NodeKey, FILE_READ, IMAGE_DECODE,
+            },
+            Event, Evidence, EvidenceData, Occurrence, StackTrace, ISSUE_TITLES,
         },
     };
 
+    use chrono::DateTime;
     use pretty_assertions::assert_eq;
+    use pyo3::PyObject;
 
     #[test]
     fn test_is_node_stack_valid() {
@@ -274,6 +279,216 @@ mod tests {
                 output, tt.valid,
                 "Test '{}': expected {}, got {}",
                 tt.name, tt.valid, output
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_frame_drop_cause() {
+        use super::*;
+        use crate::sample::v1::Sample;
+        use crate::sample::v1::{
+            Device, Measurement, MeasurementValue, OSMetadata, Profile as SampleProfileData,
+            SampleProfile,
+        };
+        use crate::types::{Platform, ProfileInterface, Transaction};
+
+        struct TestCase {
+            name: String,
+            call_trees: CallTreesU64,
+            profile: Box<dyn ProfileInterface>,
+            want: Vec<Occurrence>,
+        }
+
+        let tests = vec![{
+            TestCase {
+                name: "Find a basic cause of a frame drop".to_string(),
+                profile: Box::new(SampleProfile {
+                    event_id: "1234567890".to_string(),
+                    measurements: Some(HashMap::from_iter([(
+                        "frozen_frame_renders".to_string(),
+                        Measurement {
+                            unit: "nanosecond".to_string(),
+                            values: vec![MeasurementValue {
+                                elapsed_since_start_ns: 400_000_000, // 400ms
+                                value: 200_000_000.0,                // 200ms
+                            }],
+                        },
+                    )])),
+                    transaction: Transaction {
+                        active_thread_id: 1,
+                        id: "1234".to_string(),
+                        name: "some".to_string(),
+                        ..Default::default()
+                    },
+                    platform: Platform::Cocoa,
+                    profile: SampleProfileData {
+                        frames: vec![],
+                        samples: vec![
+                            Sample {
+                                stack_id: 0,
+                                thread_id: 1,
+                                elapsed_since_start_ns: 0,
+                                ..Default::default()
+                            },
+                            Sample {
+                                stack_id: 0,
+                                thread_id: 1,
+                                elapsed_since_start_ns: 500_000_000,
+                                ..Default::default()
+                            },
+                        ],
+                        stacks: vec![vec![]],
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }),
+                call_trees: HashMap::from_iter([
+                    (
+                        1_u64,
+                        Vec::from_iter([Rc::new(RefCell::new(Node {
+                            duration_ns: 500_000_000, // 500ms
+                            end_ns: 500_000_000,
+                            is_application: false,
+                            name: "root".to_string(),
+                            package: "package".to_string(),
+                            path: Some("path".to_string()),
+                            frame: Frame {
+                                function: Some("root".to_string()),
+                                in_app: Some(false),
+                                package: Some("package".to_string()),
+                                path: Some("path".to_string()),
+                                ..Default::default()
+                            },
+                            children: vec![
+                                Rc::new(RefCell::new(Node {
+                                    duration_ns: 200_000_000, // 200ms
+                                    end_ns: 200_000_000,
+                                    is_application: true,
+                                    name: "child1".to_string(),
+                                    package: "package".to_string(),
+                                    path: Some("path".to_string()),
+                                    frame: Frame {
+                                        function: Some("child1".to_string()),
+                                        in_app: Some(true),
+                                        package: Some("package".to_string()),
+                                        path: Some("path".to_string()),
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                })),
+                                Rc::new(RefCell::new(Node {
+                                    duration_ns: 100_000_000, // 100ms
+                                    end_ns: 300_000_000,
+                                    start_ns: 200_000_000,
+                                    is_application: true,
+                                    name: "child2".to_string(),
+                                    package: "package".to_string(),
+                                    path: Some("path".to_string()),
+                                    frame: Frame {
+                                        function: Some("child2".to_string()),
+                                        in_app: Some(true),
+                                        package: Some("package".to_string()),
+                                        path: Some("path".to_string()),
+                                        ..Default::default()
+                                    },
+                                    children: vec![Rc::new(RefCell::new(Node {
+                                        duration_ns: 50_000_000, // 50ms
+                                        end_ns: 250_000_000,
+                                        start_ns: 200_000_000,
+                                        is_application: true,
+                                        name: "child2-1".to_string(),
+                                        package: "package".to_string(),
+                                        path: Some("path".to_string()),
+                                        frame: Frame {
+                                            function: Some("child2-1".to_string()),
+                                            in_app: Some(false),
+                                            package: Some("package".to_string()),
+                                            path: Some("path".to_string()),
+                                            ..Default::default()
+                                        },
+                                        ..Default::default()
+                                    }))],
+                                    ..Default::default()
+                                })),
+                            ],
+                            ..Default::default()
+                        }))]),
+                    ), // end call_tree for tid 1
+                ]),
+                want: vec![Occurrence {
+                    culprit: "some".to_string(),
+                    issue_title: ISSUE_TITLES[FRAME_DROP].issue_title.to_string(),
+                    level: "info".to_string(),
+                    payload_type: "occurrence".to_string(),
+                    subtitle: "child2".to_string(),
+                    r#type: ISSUE_TITLES[FRAME_DROP].r#type,
+                    category: FRAME_DROP.to_string(),
+                    duration_ns: 100000000,
+                    event: Event {
+                        platform: "cocoa".to_string(),
+                        stacktrace: StackTrace {
+                            frames: vec![
+                                Frame {
+                                    function: Some("root".to_string()),
+                                    in_app: Some(false),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                                Frame {
+                                    function: Some("child2".to_string()),
+                                    in_app: Some(true),
+                                    package: Some("package".to_string()),
+                                    path: Some("path".to_string()),
+                                    ..Default::default()
+                                },
+                            ],
+                        },
+                        ..Default::default()
+                    },
+                    evidence_data: EvidenceData {
+                        frame_duration_ns: 100000000,
+                        frame_module: "".to_string(),
+                        frame_name: "child2".to_string(),
+                        frame_package: "package".to_string(),
+                        profile_id: "1234567890".to_string(),
+                        template_name: "profile".to_string(),
+                        transaction_id: "1234".to_string(),
+                        transaction_name: "some".to_string(),
+                        profile_duration_ns: 500000000,
+                        ..Default::default()
+                    },
+                    evidence_display: vec![
+                        Evidence {
+                            name: "Suspect function".to_string(),
+                            value: "child2".to_string(),
+                            important: true,
+                        },
+                        Evidence {
+                            name: "Package".to_string(),
+                            value: "package".to_string(),
+                            ..Default::default()
+                        },
+                    ],
+                    ..Default::default()
+                }], // Expect one occurrence
+            }
+        }];
+
+        for tt in tests {
+            let mut occurrences = Vec::new();
+            find_frame_drop_cause(tt.profile.as_ref(), &tt.call_trees, &mut occurrences);
+            for occurrence in &mut occurrences {
+                occurrence.event.event_id = "".to_string();
+                occurrence.detection_time = DateTime::default();
+                occurrence.id = "".to_string();
+                occurrence.fingerprint = Vec::new();
+            }
+            assert_eq!(
+                occurrences, tt.want,
+                "Test '{:?}': expected {:?} occurrences, got {:?}",
+                tt.name, tt.want, occurrences
             );
         }
     }
