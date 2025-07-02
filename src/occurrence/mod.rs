@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use chrono::{Date, DateTime, Utc};
+use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use pyo3::{pyclass, IntoPyObject, PyObject, Python};
 use uuid::Uuid;
@@ -12,6 +12,7 @@ use crate::{
 };
 
 mod detect_frame;
+mod frame_drop;
 
 // Import category constants from detect_frame module
 use detect_frame::{
