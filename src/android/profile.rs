@@ -262,6 +262,10 @@ impl ProfileInterface for AndroidProfile {
     fn get_debug_meta(&self) -> &DebugMeta {
         &self.debug_meta
     }
+
+    fn get_measurements(&self) -> Option<&HashMap<String, Measurement>> {
+        self.measurements.as_ref()
+    }
 }
 
 // CallTree generation expect activeThreadID to be set in

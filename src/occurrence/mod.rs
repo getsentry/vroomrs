@@ -565,51 +565,6 @@ pub fn new_occurrence<P: ProfileInterface>(profile: &P, mut ni: NodeInfo) -> Occ
     }
 }
 
-/// Placeholder function for finding frame drop causes.
-/// TODO: Implement the actual frame drop detection logic.
-pub fn find_frame_drop_cause<P: ProfileInterface>(
-    _profile: &P,
-    _call_trees: &CallTreesU64,
-    _occurrences: &mut Vec<Occurrence>,
-) {
-    // Placeholder implementation
-    // This would contain the frame drop detection logic
-}
-
-/// Finds occurrences in the given profile and call trees.
-/// This is the Rust equivalent of the Go Find function.
-pub fn find<P: ProfileInterface>(profile: &P, call_trees: &CallTreesU64) -> Vec<Occurrence> {
-    let mut occurrences = Vec::new();
-
-    // Look up detection jobs for this platform
-    if let Some(jobs) = detect_frame::DETECT_FRAME_JOBS.get(&profile.get_platform()) {
-        for job in jobs {
-            // Apply each detection job to the call trees
-            for (_thread_id, call_trees_for_thread) in call_trees {
-                for call_tree in call_trees_for_thread {
-                    let mut detected_nodes = HashMap::new();
-                    detect_frame::detect_frame_in_call_tree(
-                        call_tree,
-                        job.as_ref(),
-                        &mut detected_nodes,
-                    );
-
-                    // Convert detected nodes to occurrences
-                    for (_key, node_info) in detected_nodes {
-                        let occurrence = new_occurrence(profile, node_info);
-                        occurrences.push(occurrence);
-                    }
-                }
-            }
-        }
-    }
-
-    // Find frame drop causes
-    find_frame_drop_cause(profile, call_trees, &mut occurrences);
-
-    occurrences
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

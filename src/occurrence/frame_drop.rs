@@ -1,4 +1,8 @@
+use crate::frame::Frame;
 use crate::nodetree::Node;
+use crate::sample::v1::{Measurement, MeasurementValue};
+use crate::types::{CallTreesU64, ProfileInterface};
+use crate::MAX_STACK_DEPTH;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -136,5 +140,77 @@ impl FrozenFrameStats {
 
         st.pop();
         result
+    }
+}
+
+/// Finds frame drop causes in the profile based on frozen frame measurements.
+///
+/// This function looks for "frozen_frame_renders" measurements in the profile
+/// and analyzes call trees to identify potential causes of frame drops.
+pub fn find_frame_drop_cause<P: ProfileInterface>(
+    profile: &P,
+    call_trees_per_thread_id: &CallTreesU64,
+    occurrences: &mut Vec<super::Occurrence>,
+) {
+    // Get frozen frame measurements
+    let Some(measurements) = profile.get_measurements() else {
+        return;
+    };
+
+    let Some(frame_drops) = measurements.get("frozen_frame_renders") else {
+        return;
+    };
+
+    // Get call trees for the active thread
+    let active_thread_id = profile.get_transaction().active_thread_id;
+    let Some(call_trees) = call_trees_per_thread_id.get(&active_thread_id) else {
+        return;
+    };
+
+    // Process each measurement value
+    for mv in &frame_drops.values {
+        let stats = FrozenFrameStats::new(mv.elapsed_since_start_ns, mv.value);
+
+        // Check each root in call trees
+        for root in call_trees {
+            let mut st = Vec::with_capacity(MAX_STACK_DEPTH as usize);
+            if let Some(cause) = stats.find_frame_drop_cause_frame(root, &mut st, 0) {
+                // We found a potential stacktrace responsible for this frozen frame
+                let mut stack_trace = Vec::with_capacity(cause.st.len());
+                let mut unknown_frames_count = 0.0;
+
+                for frame_node in &cause.st {
+                    if frame_node
+                        .frame
+                        .function
+                        .as_ref()
+                        .is_none_or(|f| f.is_empty())
+                    {
+                        unknown_frames_count += 1.0;
+                    }
+                    stack_trace.push(frame_node.to_frame());
+                }
+
+                // If there are too many unknown frames in the stack,
+                // we do not create an occurrence.
+                let unknown_threshold =
+                    stack_trace.len() as f64 * UNKNOWN_FRAMES_IN_THE_STACK_THRESHOLD;
+                if unknown_frames_count >= unknown_threshold {
+                    continue;
+                }
+
+                // Create NodeInfo for the found cause
+                let node_info = super::NodeInfo {
+                    category: FRAME_DROP.to_string(),
+                    node: cause.n,
+                    stack_trace,
+                };
+
+                // Create new occurrence and add it to the occurrences vector
+                let occurrence = super::new_occurrence(profile, node_info);
+                occurrences.push(occurrence);
+                break; // Found a cause for this measurement, move to next one
+            }
+        }
     }
 }
