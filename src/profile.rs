@@ -231,7 +231,7 @@ impl Profile {
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
     }
 
-    /// Extracts function metrics from the call tree.
+    /// Extracts function metrics from the profile.
     ///
     /// This method analyzes the call tree and extracts metrics for each function,
     /// returning a list of `CallTreeFunction` objects.
@@ -253,7 +253,7 @@ impl Profile {
     ///     pyo3.exceptions.PyException: If an error occurs during the extraction process.
     ///
     /// Example:
-    ///     >>> metrics = call_tree.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10)
+    ///     >>> metrics = profile.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10)
     ///     >>> for function_metric in metrics:
     ///     ...     do_something(function_metric)
     #[pyo3(signature = (min_depth, filter_system_frames, max_unique_functions=None))]
