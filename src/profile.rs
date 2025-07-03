@@ -5,8 +5,9 @@ use pyo3::{pyclass, pymethods, PyErr, PyResult};
 use crate::{
     android::profile::AndroidProfile,
     nodetree::CallTreeFunction,
+    occurrence::{self, Occurrence},
     sample::v1::SampleProfile,
-    types::{CallTreesU64, ProfileInterface},
+    types::{CallTreeError, CallTreesU64, ProfileInterface},
     utils::{compress_lz4, decompress_lz4},
 };
 
@@ -293,6 +294,14 @@ impl Profile {
 
         functions_list.truncate(max_unique_functions.unwrap_or(functions_list.len()));
         Ok(functions_list)
+    }
+
+    pub fn find_occurrences(&mut self) -> Result<Vec<Occurrence>, CallTreeError> {
+        let call_trees = self.profile.call_trees()?;
+        Ok(occurrence::find_occurences(
+            self.profile.as_ref(),
+            &call_trees,
+        ))
     }
 }
 

@@ -1,6 +1,4 @@
-use crate::frame::Frame;
 use crate::nodetree::Node;
-use crate::sample::v1::{Measurement, MeasurementValue};
 use crate::types::{CallTreesU64, ProfileInterface};
 use crate::MAX_STACK_DEPTH;
 use std::cell::RefCell;
@@ -217,23 +215,15 @@ pub fn find_frame_drop_cause(
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Duration};
+    use std::collections::HashMap;
 
     use crate::{
         frame::Frame,
-        nodetree::Node,
-        occurrence::{
-            detect_frame::{
-                detect_frame_in_call_tree, DetectAndroidFrameOptions, DetectExactFrameOptions,
-                DetectFrameOptions, NodeInfo, NodeKey, FILE_READ, IMAGE_DECODE,
-            },
-            Event, Evidence, EvidenceData, Occurrence, StackTrace, ISSUE_TITLES,
-        },
+        occurrence::{Event, Evidence, EvidenceData, Occurrence, StackTrace, ISSUE_TITLES},
     };
 
     use chrono::DateTime;
     use pretty_assertions::assert_eq;
-    use pyo3::PyObject;
 
     #[test]
     fn test_is_node_stack_valid() {
@@ -288,8 +278,7 @@ mod tests {
         use super::*;
         use crate::sample::v1::Sample;
         use crate::sample::v1::{
-            Device, Measurement, MeasurementValue, OSMetadata, Profile as SampleProfileData,
-            SampleProfile,
+            Measurement, MeasurementValue, Profile as SampleProfileData, SampleProfile,
         };
         use crate::types::{Platform, ProfileInterface, Transaction};
 
@@ -990,8 +979,8 @@ mod tests {
                     (
                         1_u64,
                         Vec::from_iter([Rc::new(RefCell::new(Node {
-                            duration_ns: 1000_000_000, // 1000ms
-                            end_ns: 1000_000_000,
+                            duration_ns: 1_000_000_000, // 1000ms
+                            end_ns: 1_000_000_000,
                             is_application: false,
                             name: "root".to_string(),
                             package: "package".to_string(),

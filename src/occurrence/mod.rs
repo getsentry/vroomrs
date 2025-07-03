@@ -3,12 +3,11 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
-use pyo3::{pyclass, IntoPyObject, PyObject, Python};
-use serde_json::to_string;
+use pyo3::pyclass;
 use uuid::Uuid;
 
 use crate::{
-    android, frame, occurrence,
+    android, frame,
     types::{CallTreesU64, DebugMeta, Platform, ProfileInterface},
 };
 
@@ -18,36 +17,35 @@ mod frame_drop;
 // Import category constants from detect_frame module
 use detect_frame::{
     NodeInfo, BASE64_DECODE, BASE64_ENCODE, COMPRESSION, CORE_DATA_BLOCK, CORE_DATA_MERGE,
-    CORE_DATA_READ, CORE_DATA_WRITE, DECOMPRESSION, FILE_READ, FILE_WRITE, HTTP, IMAGE_DECODE,
-    IMAGE_ENCODE, JSON_DECODE, JSON_ENCODE, ML_MODEL_INFERENCE, ML_MODEL_LOAD, REGEX,
+    CORE_DATA_READ, CORE_DATA_WRITE, DECOMPRESSION, DETECT_FRAME_JOBS, FILE_READ, FILE_WRITE, HTTP,
+    IMAGE_DECODE, IMAGE_ENCODE, JSON_DECODE, JSON_ENCODE, ML_MODEL_INFERENCE, ML_MODEL_LOAD, REGEX,
     SOURCE_CONTEXT, SQL, THREAD_WAIT, VIEW_INFLATION, VIEW_LAYOUT, VIEW_RENDER, VIEW_UPDATE, XPC,
 };
 
-// Type constants
+// Import frame drop detection function
+use frame_drop::find_frame_drop_cause;
+
+// Type constants: DO NOT REMOVE COMMENTED TYPES!
 pub const NONE_TYPE: u64 = 0;
 pub const CORE_DATA_TYPE: u64 = 2004;
-pub const FILE_IO_TYPE: u64 = 2001;
+//pub const FILE_IO_TYPE: u64 = 2001;
 pub const IMAGE_DECODE_TYPE: u64 = 2002;
 pub const JSON_DECODE_TYPE: u64 = 2003;
 pub const REGEX_TYPE: u64 = 2007;
 pub const VIEW_TYPE: u64 = 2006;
 pub const FRAME_DROP_TYPE: u64 = 2009;
-pub const FRAME_REGRESSION_EXP_TYPE: u64 = 2010;
-pub const FRAME_REGRESSION_TYPE: u64 = 2011;
+//pub const FRAME_REGRESSION_EXP_TYPE: u64 = 2010;
+//pub const FRAME_REGRESSION_TYPE: u64 = 2011;
 
 // Evidence name constants
 pub const EVIDENCE_NAME_DURATION: &str = "Duration";
 pub const EVIDENCE_NAME_FUNCTION: &str = "Suspect function";
 pub const EVIDENCE_NAME_PACKAGE: &str = "Package";
-pub const EVIDENCE_FULLY_QUALIFIED_NAME: &str = "Fully qualified name";
-pub const EVIDENCE_BREAKPOINT: &str = "Breakpoint";
-pub const EVIDENCE_REGRESSION: &str = "Regression";
-
-// Context constants
-pub const CONTEXT_TRACE: &str = "trace";
+//pub const EVIDENCE_FULLY_QUALIFIED_NAME: &str = "Fully qualified name";
+//pub const EVIDENCE_BREAKPOINT: &str = "Breakpoint";
+//pub const EVIDENCE_REGRESSION: &str = "Regression";
 
 // Other constants
-pub const PROFILE_ID: &str = "profile_id";
 pub const OCCURRENCE_PAYLOAD: &str = "occurrence";
 
 // FRAME_DROP constant (not defined in detect_frame.rs)
@@ -425,7 +423,7 @@ pub fn generate_evidence_display(
 
             let duration_str = match profile.get_platform() {
                 Platform::Android => {
-                    format!("{:?} ({:.2}% of the profile)", duration, profile_percentage)
+                    format!("{duration:?} ({profile_percentage:.2}% of the profile)")
                 }
                 _ => {
                     format!(
@@ -533,6 +531,26 @@ pub fn new_occurrence(profile: &dyn ProfileInterface, mut ni: NodeInfo) -> Occur
         duration_ns: ni.node.duration_ns,
         sample_count: ni.node.sample_count,
     }
+}
+
+/// Finds occurrences in a profile by detecting frames and frame drop causes.
+pub fn find_occurences(
+    profile: &dyn ProfileInterface,
+    call_trees: &CallTreesU64,
+) -> Vec<Occurrence> {
+    let mut occurrences = Vec::new();
+
+    // Check if there are detection jobs for this platform
+    if let Some(jobs) = DETECT_FRAME_JOBS.get(&profile.get_platform()) {
+        for options in jobs {
+            detect_frame::detect_frame(profile, call_trees, options.as_ref(), &mut occurrences);
+        }
+    }
+
+    // Find frame drop causes
+    find_frame_drop_cause(profile, call_trees, &mut occurrences);
+
+    occurrences
 }
 
 #[cfg(test)]
