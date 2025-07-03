@@ -13,6 +13,7 @@ use std::rc::Rc;
 use crate::android::AndroidError;
 use crate::debug_images::Image;
 use crate::nodetree::Node;
+use crate::sample::v1::Measurement;
 use crate::sample::SampleError;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -234,6 +235,7 @@ pub trait ProfileInterface {
     fn get_transaction(&self) -> Cow<Transaction>;
     fn get_transaction_tags(&self) -> &HashMap<String, String>;
     fn get_debug_meta(&self) -> &DebugMeta;
+    fn get_measurements(&self) -> Option<&HashMap<String, Measurement>>;
 
     /// Serialize the given data structure as a JSON byte vector.
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;

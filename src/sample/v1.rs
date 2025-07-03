@@ -27,14 +27,14 @@ pub struct OSMetadata {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Measurement {
-    unit: String,
-    values: Vec<MeasurementValue>,
+    pub unit: String,
+    pub values: Vec<MeasurementValue>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct MeasurementValue {
-    elapsed_since_start_ns: u64,
-    value: f64,
+    pub elapsed_since_start_ns: u64,
+    pub value: f64,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
@@ -541,6 +541,10 @@ impl ProfileInterface for SampleProfile {
 
     fn get_debug_meta(&self) -> &DebugMeta {
         &self.debug_meta
+    }
+
+    fn get_measurements(&self) -> Option<&HashMap<String, Measurement>> {
+        self.measurements.as_ref()
     }
 }
 
