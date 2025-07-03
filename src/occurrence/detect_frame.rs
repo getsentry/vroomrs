@@ -555,8 +555,8 @@ fn detect_frame_in_node(
 
 /// Detects occurrence of an issue based by matching frames of the profile on a list of frames.
 /// This is the Rust equivalent of the Go detectFrame function.
-pub fn detect_frame<P: ProfileInterface>(
-    profile: &P,
+pub fn detect_frame(
+    profile: &dyn ProfileInterface,
     call_trees_per_thread_id: &CallTreesU64,
     options: &dyn DetectFrameOptions,
     occurrences: &mut Vec<super::Occurrence>,

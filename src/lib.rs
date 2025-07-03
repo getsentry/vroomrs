@@ -7,6 +7,7 @@ mod android;
 mod debug_images;
 mod frame;
 mod nodetree;
+mod occurrence;
 mod profile;
 mod profile_chunk;
 mod sample;
