@@ -53,7 +53,8 @@ pub struct SampleData {
     pub frames: Vec<Frame>,
     pub samples: Vec<Sample>,
     pub stacks: Vec<Vec<i32>>,
-    pub thread_metadata: std::collections::HashMap<String, ThreadMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thread_metadata: Option<std::collections::HashMap<String, ThreadMetadata>>,
 }
 
 impl SampleData {
