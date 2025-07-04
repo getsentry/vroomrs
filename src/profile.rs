@@ -296,6 +296,28 @@ impl Profile {
         Ok(functions_list)
     }
 
+    /// Finds performance issues (occurrences) in the profile.
+    ///
+    /// This method analyzes the call tree to detect various performance issues such as:
+    /// - Frame drops caused by main thread blocking
+    /// - Slow operations on the main thread (e.g., I/O, compression, database operations)
+    /// - SwiftUI performance issues (view inflation, layout, rendering)
+    /// - Machine learning model operations
+    /// - And other platform-specific performance patterns
+    ///
+    /// Returns:
+    ///     list[:class:`Occurrence`]
+    ///         A list of :class:`Occurrence` objects, each representing a detected performance issue.
+    ///
+    /// Raises:
+    ///     pyo3.exceptions.PyException: If an error occurs during the detection process.
+    ///
+    /// Example:
+    ///     >>> occurrences = profile.find_occurrences()
+    ///     >>> for occurrence in occurrences:
+    ///     ...     print(f"Issue: {occurrence.issue_title}")
+    ///     ...     print(f"Function: {occurrence.subtitle}")
+    ///     ...     print(f"Duration: {occurrence.duration_ns}ns")
     pub fn find_occurrences(&mut self) -> Result<Vec<Occurrence>, CallTreeError> {
         let call_trees = self.profile.call_trees()?;
         Ok(occurrence::find_occurences(

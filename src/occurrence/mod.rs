@@ -77,6 +77,45 @@ pub struct EvidenceData {
     profile_id: String,
     sample_count: Option<u64>,
 }
+/// Represents a detected performance issue (occurrence) in a profile.
+///
+/// An occurrence is a specific instance of a performance problem detected through
+/// profile analysis. It contains detailed information about the issue, including
+/// the problematic function, stack trace, evidence, and metadata for issue tracking.
+///
+/// The occurrence detection system can identify various types of performance issues:
+/// - Frame drops caused by main thread blocking
+/// - Slow operations on the main thread (I/O, compression, database operations)
+/// - SwiftUI performance issues (view inflation, layout, rendering)
+/// - Machine learning model operations
+/// - Platform-specific performance patterns
+///
+/// Attributes:
+///     culprit (str): The name of the transaction or main operation where the issue occurred.
+///     detection_time (datetime): When the issue was detected.
+///     event (Event): Event data including platform, stack trace, and debug information.
+///     evidence_data (EvidenceData): Structured data about the performance issue.
+///     evidence_display (list[Evidence]): Human-readable evidence for displaying the issue.
+///     fingerprint (list[str]): Unique identifiers for grouping similar issues.
+///     id (str): Unique identifier for this specific occurrence.
+///     issue_title (str): Human-readable title describing the type of issue.
+///     level (str): Severity level of the issue (e.g., "info", "warning", "error").
+///     payload_type (str): Type of payload, typically "occurrence".
+///     project_id (int): ID of the project where the issue was detected.
+///     resource_id (str): Optional resource identifier.
+///     subtitle (str): Brief description, usually the function name where the issue occurred.
+///     type (int): Numeric type identifier for the issue category.
+///     category (str): Category name for the performance issue.
+///     duration_ns (int): Duration of the problematic operation in nanoseconds.
+///     sample_count (int): Number of samples where this issue was detected.
+///
+/// Example:
+///     >>> occurrences = profile.find_occurrences()
+///     >>> for occurrence in occurrences:
+///     ...     print(f"Issue: {occurrence.issue_title}")
+///     ...     print(f"Function: {occurrence.subtitle}")
+///     ...     print(f"Duration: {occurrence.duration_ns}ns")
+///     ...     print(f"Category: {occurrence.category}")
 #[pyclass]
 #[derive(Debug, PartialEq, Default)]
 pub struct Occurrence {
