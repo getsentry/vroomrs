@@ -192,6 +192,30 @@ class Profile:
         """
         ...
 
+    def find_occurrences(self) -> List["Occurrence"]:
+        """
+        Finds performance issues (occurrences) in the profile.
+
+        This method analyzes the call tree to detect various performance issues such as:
+        - Frame drops caused by main thread blocking
+        - Slow operations on the main thread (e.g., I/O, compression, database operations)
+        - SwiftUI performance issues (view inflation, layout, rendering)
+        - Machine learning model operations
+        - And other platform-specific performance patterns
+
+        Returns:
+            list[Occurrence]: A list of Occurrence objects, each representing a detected performance issue.
+
+        Raises:
+            Exception: If an error occurs during the detection process.
+
+        Example:
+            >>> occurrences = profile.find_occurrences()
+            >>> for occurrence in occurrences:
+            ...     print(f"Issue: {occurrence.issue_title}")
+        """
+        ...
+
 class ProfileChunk:
     """
     This is a ProfileChunk class
@@ -489,6 +513,15 @@ class CallTreeFunction:
             int: The maximum duration in nanoseconds.
         """
         ...
+
+class Occurrence:
+    """
+    Represents a detected performance issue (occurrence) in a profile.
+
+    An occurrence is a specific instance of a performance problem detected through
+    profile analysis. It contains detailed information about the issue, including
+    the problematic function, stack trace, evidence, and metadata for issue tracking.
+    """
 
 def profile_chunk_from_json_str(profile: str, platform: Optional[str] = None) -> ProfileChunk:
     """
