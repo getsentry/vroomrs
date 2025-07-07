@@ -84,13 +84,19 @@ pub fn is_cocoa_application_package(p: &str) -> bool {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Default)]
 pub struct Data {
-    #[serde(rename = "deobfuscation_status")]
+    #[serde(
+        rename = "deobfuscation_status",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub deobfuscation_status: Option<String>,
 
-    #[serde(rename = "symbolicator_status")]
+    #[serde(
+        rename = "symbolicator_status",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub symbolicator_status: Option<String>,
 
-    #[serde(rename = "symbolicated")]
+    #[serde(rename = "symbolicated", skip_serializing_if = "Option::is_none")]
     pub js_symbolicated: Option<bool>,
 }
 

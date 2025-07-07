@@ -97,6 +97,7 @@ impl std::ops::Deref for ClientSDK {
 
 #[derive(Default, Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct DebugMeta {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub images: Option<Vec<Image>>,
 }
 
