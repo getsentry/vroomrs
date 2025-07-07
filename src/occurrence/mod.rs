@@ -4,6 +4,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
 use pyo3::{pyclass, pymethods};
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
@@ -51,13 +52,13 @@ pub const OCCURRENCE_PAYLOAD: &str = "occurrence";
 // FRAME_DROP constant (not defined in detect_frame.rs)
 const FRAME_DROP: &str = "frame_drop";
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Serialize, Clone, Default, PartialEq)]
 pub struct StackTrace {
     pub frames: Vec<frame::Frame>,
 }
 
 #[pyclass]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Serialize, Clone, Default, PartialEq)]
 pub struct Evidence {
     pub name: String,
     pub value: String,
@@ -95,7 +96,7 @@ impl Evidence {
 }
 
 #[pyclass]
-#[derive(Debug, PartialEq, Default, Clone)]
+#[derive(Debug, Serialize, PartialEq, Default, Clone)]
 pub struct EvidenceData {
     frame_duration_ns: u64,
     frame_module: String,
@@ -203,7 +204,7 @@ impl EvidenceData {
 }
 
 #[pyclass]
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
 pub struct Occurrence {
     pub culprit: String,
     pub detection_time: DateTime<Utc>,
@@ -389,7 +390,7 @@ pub struct CategoryMetadata {
 
 /// Options for detecting exact frames in profiling data.
 #[pyclass]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Serialize, Clone, Default, PartialEq)]
 pub struct Event {
     pub debug_meta: DebugMeta,
     pub environment: String,

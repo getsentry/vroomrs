@@ -192,7 +192,7 @@ class Profile:
         """
         ...
 
-    def find_occurrences(self) -> List["Occurrence"]:
+    def find_occurrences(self) -> "Occurrences":
         """
         Finds performance issues (occurrences) in the profile.
 
@@ -204,15 +204,10 @@ class Profile:
         - And other platform-specific performance patterns
 
         Returns:
-            list[Occurrence]: A list of Occurrence objects, each representing a detected performance issue.
+            Occurrences: An Occurrences object, a wrapper containing a list of Occurrences, each representing a detected performance issue.
 
         Raises:
             Exception: If an error occurs during the detection process.
-
-        Example:
-            >>> occurrences = profile.find_occurrences()
-            >>> for occurrence in occurrences:
-            ...     print(f"Issue: {occurrence.issue_title}")
         """
         ...
 
@@ -522,6 +517,198 @@ class Occurrence:
     profile analysis. It contains detailed information about the issue, including
     the problematic function, stack trace, evidence, and metadata for issue tracking.
     """
+    
+    def get_culprit(self) -> str:
+        """
+        Returns the culprit (transaction name) where the issue occurred.
+
+        Returns:
+            str: The name of the transaction or main operation where the issue occurred.
+        """
+        ...
+
+    def get_detection_time(self) -> str:
+        """
+        Returns the detection time as an RFC 3339 formatted string.
+
+        Returns:
+            str: The detection time in RFC 3339 format.
+        """
+        ...
+
+    def get_event(self) -> "Event":
+        """
+        Returns the event data.
+
+        Returns:
+            Event: Event data including platform, stack trace, and debug information.
+        """
+        ...
+
+    def get_evidence_data(self) -> "EvidenceData":
+        """
+        Returns the evidence data.
+
+        Returns:
+            EvidenceData: Structured data about the performance issue.
+        """
+        ...
+
+    def get_evidence_display(self) -> List["Evidence"]:
+        """
+        Returns the evidence display list.
+
+        Returns:
+            list[Evidence]: Human-readable evidence for displaying the issue.
+        """
+        ...
+
+    def get_fingerprint(self) -> List[str]:
+        """
+        Returns the fingerprint list.
+
+        Returns:
+            list[str]: Unique identifiers for grouping similar issues.
+        """
+        ...
+
+    def get_id(self) -> str:
+        """
+        Returns the occurrence ID.
+
+        Returns:
+            str: Unique identifier for this specific occurrence.
+        """
+        ...
+
+    def get_issue_title(self) -> str:
+        """
+        Returns the issue title.
+
+        Returns:
+            str: Human-readable title describing the type of issue.
+        """
+        ...
+
+    def get_level(self) -> str:
+        """
+        Returns the severity level.
+
+        Returns:
+            str: Severity level of the issue (e.g., "info", "warning", "error").
+        """
+        ...
+
+    def get_payload_type(self) -> str:
+        """
+        Returns the payload type.
+
+        Returns:
+            str: Type of payload, typically "occurrence".
+        """
+        ...
+
+    def get_project_id(self) -> int:
+        """
+        Returns the project ID.
+
+        Returns:
+            int: ID of the project where the issue was detected.
+        """
+        ...
+
+    def get_resource_id(self) -> Optional[str]:
+        """
+        Returns the resource ID.
+
+        Returns:
+            str: Optional resource identifier, or None if not available.
+        """
+        ...
+
+    def get_subtitle(self) -> str:
+        """
+        Returns the subtitle.
+
+        Returns:
+            str: Brief description, usually the function name where the issue occurred.
+        """
+        ...
+
+    def get_type(self) -> int:
+        """
+        Returns the issue type.
+
+        Returns:
+            int: Numeric type identifier for the issue category.
+        """
+        ...
+
+    def get_category(self) -> str:
+        """
+        Returns the category name.
+
+        Returns:
+            str: Category name for the performance issue.
+        """
+        ...
+
+    def get_duration_ns(self) -> int:
+        """
+        Returns the duration in nanoseconds.
+
+        Returns:
+            int: Duration of the problematic operation in nanoseconds.
+        """
+        ...
+
+    def get_sample_count(self) -> int:
+        """
+        Returns the sample count.
+
+        Returns:
+            int: Number of samples where this issue was detected.
+        """
+        ...
+
+class Occurrences:
+    """
+    A wrapper class containing a list of Occurrence objects.
+    
+    This class wraps the results of occurrence detection, providing access to
+    the detected performance issues through the occurrences attribute.
+    """
+    occurrences: List[Occurrence]
+    
+    def to_json_str(self) -> str:
+        """
+        Serializes the occurrences to a JSON string.
+
+        Returns:
+            str: A JSON string representation of the occurrences list.
+
+        Raises:
+            ValueError: If the serialization fails due to invalid data.
+
+        Example:
+            >>> occurrences = profile.find_occurrences()
+            >>> json_str = occurrences.to_json_str()
+            >>> print(json_str)
+        """
+        ...
+
+    def filter_none_type_issues(self) -> None:
+        """
+        Filters occurrences to remove those with NONE_TYPE.
+
+        This method removes all occurrences that have a type of NONE_TYPE,
+        keeping only meaningful performance issues in the collection.
+
+        Example:
+            >>> occurrences = profile.find_occurrences()
+            >>> occurrences.filter_none_type_issues()
+        """
+        ...
 
 def profile_chunk_from_json_str(profile: str, platform: Optional[str] = None) -> ProfileChunk:
     """

@@ -67,6 +67,47 @@ impl Profile {
     }
 }
 
+#[pyclass]
+pub struct Occurrences {
+    #[pyo3(get)]
+    pub occurrences: Vec<Occurrence>,
+}
+
+#[pymethods]
+impl Occurrences {
+    /// Serializes the occurrences to a JSON string.
+    ///
+    /// Returns:
+    ///     str
+    ///         A JSON string representation of the occurrences list.
+    ///
+    /// Raises:
+    ///     ValueError
+    ///         If the serialization fails due to invalid data.
+    ///
+    /// Example:
+    ///     >>> occurrences = profile.find_occurrences()
+    ///     >>> json_str = occurrences.to_json_str()
+    ///     >>> print(json_str)
+    pub fn to_json_str(&self) -> Result<String, PyErr> {
+        serde_json::to_string(&self.occurrences)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+    }
+
+    /// Filters occurrences to remove those with NONE_TYPE.
+    ///
+    /// This method removes all occurrences that have a type of NONE_TYPE,
+    /// keeping only meaningful performance issues in the collection.
+    ///
+    /// Example:
+    ///     >>> occurrences = profile.find_occurrences()
+    ///     >>> occurrences.filter_none_type_issues()
+    pub fn filter_none_type_issues(&mut self) {
+        self.occurrences
+            .retain(|occ| occ.r#type != occurrence::NONE_TYPE);
+    }
+}
+
 #[pymethods]
 impl Profile {
     /// Applies the various normalization steps,
@@ -306,22 +347,16 @@ impl Profile {
     /// - And other platform-specific performance patterns
     ///
     /// Returns:
-    ///     list[:class:`Occurrence`]
-    ///         A list of :class:`Occurrence` objects, each representing a detected performance issue.
+    ///     :class:`Occurrence`
+    ///         An :class:`Occurrences` object, a wrapper containing a list of :class:`Occurrences`, each representing a detected performance issue.
     ///
     /// Raises:
     ///     pyo3.exceptions.PyException: If an error occurs during the detection process.
-    ///
-    /// Example:
-    ///     >>> occurrences = profile.find_occurrences()
-    ///     >>> for occurrence in occurrences:
-    ///     ...     print(f"Issue: {occurrence.issue_title}")
-    pub fn find_occurrences(&mut self) -> Result<Vec<Occurrence>, CallTreeError> {
+    pub fn find_occurrences(&mut self) -> Result<Occurrences, CallTreeError> {
         let call_trees = self.profile.call_trees()?;
-        Ok(occurrence::find_occurences(
-            self.profile.as_ref(),
-            &call_trees,
-        ))
+        Ok(Occurrences {
+            occurrences: occurrence::find_occurences(self.profile.as_ref(), &call_trees),
+        })
     }
 }
 
