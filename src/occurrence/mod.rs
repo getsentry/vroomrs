@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
-use pyo3::pyclass;
+use pyo3::{pyclass, pymethods};
 use uuid::Uuid;
 
 use crate::{
@@ -56,6 +56,7 @@ pub struct StackTrace {
     pub frames: Vec<frame::Frame>,
 }
 
+#[pyclass]
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Evidence {
     pub name: String,
@@ -63,8 +64,38 @@ pub struct Evidence {
     pub important: bool,
 }
 
+#[pymethods]
+impl Evidence {
+    /// Returns the evidence name.
+    ///
+    /// Returns:
+    ///     str
+    ///         The name of the evidence (e.g., "Duration", "Suspect function", "Package").
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
+    /// Returns the evidence value.
+    ///
+    /// Returns:
+    ///     str
+    ///         The value of the evidence.
+    pub fn get_value(&self) -> &str {
+        &self.value
+    }
+
+    /// Returns whether the evidence is important.
+    ///
+    /// Returns:
+    ///     bool
+    ///         True if the evidence is marked as important, False otherwise.
+    pub fn get_important(&self) -> bool {
+        self.important
+    }
+}
+
 #[pyclass]
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Clone)]
 pub struct EvidenceData {
     frame_duration_ns: u64,
     frame_module: String,
@@ -77,6 +108,100 @@ pub struct EvidenceData {
     profile_id: String,
     sample_count: Option<u64>,
 }
+
+#[pymethods]
+impl EvidenceData {
+    /// Returns the frame duration in nanoseconds.
+    ///
+    /// Returns:
+    ///     int
+    ///         Duration of the frame in nanoseconds.
+    pub fn get_frame_duration_ns(&self) -> u64 {
+        self.frame_duration_ns
+    }
+
+    /// Returns the frame module.
+    ///
+    /// Returns:
+    ///     str
+    ///         Module name where the frame is located.
+    pub fn get_frame_module(&self) -> &str {
+        &self.frame_module
+    }
+
+    /// Returns the frame name.
+    ///
+    /// Returns:
+    ///     str
+    ///         Name of the frame/function.
+    pub fn get_frame_name(&self) -> &str {
+        &self.frame_name
+    }
+
+    /// Returns the frame package.
+    ///
+    /// Returns:
+    ///     str
+    ///         Package name where the frame is located.
+    pub fn get_frame_package(&self) -> &str {
+        &self.frame_package
+    }
+
+    /// Returns the profile duration in nanoseconds.
+    ///
+    /// Returns:
+    ///     int
+    ///         Total duration of the profile in nanoseconds.
+    pub fn get_profile_duration_ns(&self) -> u64 {
+        self.profile_duration_ns
+    }
+
+    /// Returns the template name.
+    ///
+    /// Returns:
+    ///     str
+    ///         Name of the template used.
+    pub fn get_template_name(&self) -> &str {
+        &self.template_name
+    }
+
+    /// Returns the transaction ID.
+    ///
+    /// Returns:
+    ///     str
+    ///         ID of the transaction.
+    pub fn get_transaction_id(&self) -> &str {
+        &self.transaction_id
+    }
+
+    /// Returns the transaction name.
+    ///
+    /// Returns:
+    ///     str
+    ///         Name of the transaction.
+    pub fn get_transaction_name(&self) -> &str {
+        &self.transaction_name
+    }
+
+    /// Returns the profile ID.
+    ///
+    /// Returns:
+    ///     str
+    ///         ID of the profile.
+    pub fn get_profile_id(&self) -> &str {
+        &self.profile_id
+    }
+
+    /// Returns the sample count.
+    ///
+    /// Returns:
+    ///     int
+    ///         Number of samples, or None if not available.
+    pub fn get_sample_count(&self) -> Option<u64> {
+        self.sample_count
+    }
+}
+
 #[pyclass]
 #[derive(Debug, PartialEq, Default)]
 pub struct Occurrence {
@@ -100,12 +225,170 @@ pub struct Occurrence {
     pub duration_ns: u64,
     pub sample_count: u64,
 }
+
+#[pymethods]
+impl Occurrence {
+    /// Returns the culprit (transaction name) where the issue occurred.
+    ///
+    /// Returns:
+    ///     str
+    ///         The name of the transaction or main operation where the issue occurred.
+    pub fn get_culprit(&self) -> &str {
+        &self.culprit
+    }
+
+    /// Returns the detection time as an RFC 3339 formatted string.
+    ///
+    /// Returns:
+    ///     str
+    ///         The detection time in RFC 3339 format.
+    pub fn get_detection_time(&self) -> String {
+        self.detection_time.to_rfc3339()
+    }
+
+    /// Returns the event data.
+    ///
+    /// Returns:
+    ///     Event
+    ///         Event data including platform, stack trace, and debug information.
+    pub fn get_event(&self) -> Event {
+        self.event.clone()
+    }
+
+    /// Returns the evidence data.
+    ///
+    /// Returns:
+    ///     EvidenceData
+    ///         Structured data about the performance issue.
+    pub fn get_evidence_data(&self) -> EvidenceData {
+        self.evidence_data.clone()
+    }
+
+    /// Returns the evidence display list.
+    ///
+    /// Returns:
+    ///     list[Evidence]
+    ///         Human-readable evidence for displaying the issue.
+    pub fn get_evidence_display(&self) -> Vec<Evidence> {
+        self.evidence_display.clone()
+    }
+
+    /// Returns the fingerprint list.
+    ///
+    /// Returns:
+    ///     list[str]
+    ///         Unique identifiers for grouping similar issues.
+    pub fn get_fingerprint(&self) -> &Vec<String> {
+        &self.fingerprint
+    }
+
+    /// Returns the occurrence ID.
+    ///
+    /// Returns:
+    ///     str
+    ///         Unique identifier for this specific occurrence.
+    pub fn get_id(&self) -> &str {
+        &self.id
+    }
+
+    /// Returns the issue title.
+    ///
+    /// Returns:
+    ///     str
+    ///         Human-readable title describing the type of issue.
+    pub fn get_issue_title(&self) -> &str {
+        &self.issue_title
+    }
+
+    /// Returns the severity level.
+    ///
+    /// Returns:
+    ///     str
+    ///         Severity level of the issue (e.g., "info", "warning", "error").
+    pub fn get_level(&self) -> &str {
+        &self.level
+    }
+
+    /// Returns the payload type.
+    ///
+    /// Returns:
+    ///     str
+    ///         Type of payload, typically "occurrence".
+    pub fn get_payload_type(&self) -> &str {
+        &self.payload_type
+    }
+
+    /// Returns the project ID.
+    ///
+    /// Returns:
+    ///     int
+    ///         ID of the project where the issue was detected.
+    pub fn get_project_id(&self) -> u64 {
+        self.project_id
+    }
+
+    /// Returns the resource ID.
+    ///
+    /// Returns:
+    ///     str
+    ///         Optional resource identifier, or None if not available.
+    pub fn get_resource_id(&self) -> Option<&str> {
+        self.resource_id.as_deref()
+    }
+
+    /// Returns the subtitle.
+    ///
+    /// Returns:
+    ///     str
+    ///         Brief description, usually the function name where the issue occurred.
+    pub fn get_subtitle(&self) -> &str {
+        &self.subtitle
+    }
+
+    /// Returns the issue type.
+    ///
+    /// Returns:
+    ///     int
+    ///         Numeric type identifier for the issue category.
+    pub fn get_type(&self) -> u64 {
+        self.r#type
+    }
+
+    /// Returns the category name.
+    ///
+    /// Returns:
+    ///     str
+    ///         Category name for the performance issue.
+    pub fn get_category(&self) -> &str {
+        &self.category
+    }
+
+    /// Returns the duration in nanoseconds.
+    ///
+    /// Returns:
+    ///     int
+    ///         Duration of the problematic operation in nanoseconds.
+    pub fn get_duration_ns(&self) -> u64 {
+        self.duration_ns
+    }
+
+    /// Returns the sample count.
+    ///
+    /// Returns:
+    ///     int
+    ///         Number of samples where this issue was detected.
+    pub fn get_sample_count(&self) -> u64 {
+        self.sample_count
+    }
+}
+
 pub struct CategoryMetadata {
     issue_title: &'static str,
     r#type: u64,
 }
 
 /// Options for detecting exact frames in profiling data.
+#[pyclass]
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Event {
     pub debug_meta: DebugMeta,
