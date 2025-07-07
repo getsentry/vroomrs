@@ -697,6 +697,19 @@ class Occurrences:
         """
         ...
 
+    def filter_none_type_issues(self) -> None:
+        """
+        Filters occurrences to remove those with NONE_TYPE.
+
+        This method removes all occurrences that have a type of NONE_TYPE,
+        keeping only meaningful performance issues in the collection.
+
+        Example:
+            >>> occurrences = profile.find_occurrences()
+            >>> occurrences.filter_none_type_issues()
+        """
+        ...
+
 def profile_chunk_from_json_str(profile: str, platform: Optional[str] = None) -> ProfileChunk:
     """
     Returns a `ProfileChunk` instance from a json string

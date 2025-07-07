@@ -93,6 +93,19 @@ impl Occurrences {
         serde_json::to_string(&self.occurrences)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
     }
+
+    /// Filters occurrences to remove those with NONE_TYPE.
+    ///
+    /// This method removes all occurrences that have a type of NONE_TYPE,
+    /// keeping only meaningful performance issues in the collection.
+    ///
+    /// Example:
+    ///     >>> occurrences = profile.find_occurrences()
+    ///     >>> occurrences.filter_none_type_issues()
+    pub fn filter_none_type_issues(&mut self) {
+        self.occurrences
+            .retain(|occ| occ.r#type != occurrence::NONE_TYPE);
+    }
 }
 
 #[pymethods]
