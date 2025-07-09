@@ -272,6 +272,10 @@ impl ProfileInterface for AndroidProfile {
     fn is_sampled(&self) -> bool {
         self.sampled
     }
+
+    fn set_profile_id(&mut self, profile_id: String) {
+        self.profile_id = profile_id
+    }
 }
 
 // CallTree generation expect activeThreadID to be set in

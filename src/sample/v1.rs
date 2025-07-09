@@ -552,6 +552,10 @@ impl ProfileInterface for SampleProfile {
     fn is_sampled(&self) -> bool {
         self.sampled
     }
+
+    fn set_profile_id(&mut self, profile_id: String) {
+        self.event_id = profile_id
+    }
 }
 
 #[cfg(test)]
