@@ -237,6 +237,7 @@ pub trait ProfileInterface {
     fn get_transaction_tags(&self) -> &HashMap<String, String>;
     fn get_debug_meta(&self) -> &DebugMeta;
     fn get_measurements(&self) -> Option<&HashMap<String, Measurement>>;
+    fn is_sampled(&self) -> bool;
 
     /// Serialize the given data structure as a JSON byte vector.
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;

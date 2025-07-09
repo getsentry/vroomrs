@@ -211,6 +211,15 @@ class Profile:
         """
         ...
 
+    def is_sampled(self) -> bool:
+        """
+        Returns whether the profile is sampled.
+
+        Returns:
+            bool: True if the profile is sampled, False otherwise.
+        """
+        ...
+
 class ProfileChunk:
     """
     This is a ProfileChunk class

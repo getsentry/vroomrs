@@ -121,6 +121,8 @@ pub struct SampleProfile {
 
     pub profile: Profile,
 
+    pub sampled: bool,
+
     pub timestamp: DateTime<Utc>,
 
     pub transaction: Transaction,
@@ -545,6 +547,10 @@ impl ProfileInterface for SampleProfile {
 
     fn get_measurements(&self) -> Option<&HashMap<String, Measurement>> {
         self.measurements.as_ref()
+    }
+
+    fn is_sampled(&self) -> bool {
+        self.sampled
     }
 }
 
