@@ -84,6 +84,20 @@ class Profile:
         """
         ...
 
+    def set_profile_id(self, profile_id: str) -> None:
+        """
+        Sets the profile ID.
+
+        This method updates the profile's unique identifier.
+
+        Args:
+            profile_id (str): The new profile ID to set.
+
+        Example:
+            >>> profile.set_profile_id("06ccc59502e64154a352e25cb59ccf08")
+        """
+        ...
+
     def get_retention_days(self) -> int:
         """
         Returns the retention days.

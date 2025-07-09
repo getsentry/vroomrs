@@ -238,6 +238,7 @@ pub trait ProfileInterface {
     fn get_debug_meta(&self) -> &DebugMeta;
     fn get_measurements(&self) -> Option<&HashMap<String, Measurement>>;
     fn is_sampled(&self) -> bool;
+    fn set_profile_id(&mut self, profile_id: String);
 
     /// Serialize the given data structure as a JSON byte vector.
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;

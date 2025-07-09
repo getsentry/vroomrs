@@ -367,6 +367,19 @@ impl Profile {
     pub fn is_sampled(&self) -> bool {
         self.profile.is_sampled()
     }
+
+    /// Sets the profile ID.
+    ///
+    /// This method updates the profile's unique identifier.
+    ///
+    /// Args:
+    ///     profile_id (str): The new profile ID to set.
+    ///
+    /// Example:
+    ///     >>> profile.set_profile_id("06ccc59502e64154a352e25cb59ccf08")
+    pub fn set_profile_id(&mut self, profile_id: String) {
+        self.profile.set_profile_id(profile_id);
+    }
 }
 
 #[cfg(test)]
