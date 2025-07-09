@@ -74,6 +74,8 @@ pub struct AndroidProfile {
 
     retention_days: i32,
 
+    sampled: bool,
+
     timestamp: DateTime<Utc>,
 
     trace_id: String,
@@ -265,6 +267,10 @@ impl ProfileInterface for AndroidProfile {
 
     fn get_measurements(&self) -> Option<&HashMap<String, Measurement>> {
         self.measurements.as_ref()
+    }
+
+    fn is_sampled(&self) -> bool {
+        self.sampled
     }
 }
 

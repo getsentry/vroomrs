@@ -358,6 +358,15 @@ impl Profile {
             occurrences: occurrence::find_occurences(self.profile.as_ref(), &call_trees),
         })
     }
+
+    /// Returns whether the profile is sampled.
+    ///
+    /// Returns:
+    ///     bool
+    ///         True if the profile is sampled, False otherwise.
+    pub fn is_sampled(&self) -> bool {
+        self.profile.is_sampled()
+    }
 }
 
 #[cfg(test)]
