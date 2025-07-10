@@ -790,26 +790,26 @@ class Metadata:
     and other profile-specific data for analysis and debugging purposes.
     """
     
-    android_api_level: int
-    """The Android API level of the device."""
+    android_api_level: Optional[int]
+    """The Android API level of the device, or None if not available."""
     
     architecture: str
     """The device architecture (e.g., 'arm64', 'x86_64')."""
     
-    device_classification: str
-    """The device classification or category."""
+    device_classification: Optional[str]
+    """The device classification or category, or None if not available."""
     
-    device_locale: str
-    """The device locale setting."""
+    device_locale: Optional[str]
+    """The device locale setting, or None if not available."""
     
-    device_manufacturer: str
-    """The device manufacturer name."""
+    device_manufacturer: Optional[str]
+    """The device manufacturer name, or None if not available."""
     
     device_model: str
     """The device model name."""
     
-    device_os_build_number: str
-    """The device OS build number."""
+    device_os_build_number: Optional[str]
+    """The device OS build number, or None if not available."""
     
     device_os_name: str
     """The device operating system name."""
@@ -823,11 +823,11 @@ class Metadata:
     project_id: str
     """The project ID as a string."""
     
-    sdk_name: str
-    """The name of the SDK used to collect this profile."""
+    sdk_name: Optional[str]
+    """The name of the SDK used to collect this profile, or None if not available."""
     
-    sdk_version: str
-    """The version of the SDK used to collect this profile."""
+    sdk_version: Optional[str]
+    """The version of the SDK used to collect this profile, or None if not available."""
     
     timestamp: int
     """The timestamp when the profile was collected (Unix timestamp)."""
@@ -841,11 +841,11 @@ class Metadata:
     transaction_name: str
     """The name of the transaction."""
     
-    version_code: str
-    """The version code of the application."""
+    version_code: Optional[str]
+    """The version code of the application, or None if not available."""
     
-    version_name: str
-    """The version name of the application."""
+    version_name: Optional[str]
+    """The version name of the application, or None if not available."""
 
 def profile_chunk_from_json_str(profile: str, platform: Optional[str] = None) -> ProfileChunk:
     """
