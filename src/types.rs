@@ -229,19 +229,19 @@ pub struct TransactionMetadata {
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Metadata {
     #[pyo3(get)]
-    pub android_api_level: u32,
+    pub android_api_level: Option<u32>,
     #[pyo3(get)]
     pub architecture: String,
     #[pyo3(get)]
-    pub device_classification: String,
+    pub device_classification: Option<String>,
     #[pyo3(get)]
-    pub device_locale: String,
+    pub device_locale: Option<String>,
     #[pyo3(get)]
-    pub device_manufacturer: String,
+    pub device_manufacturer: Option<String>,
     #[pyo3(get)]
     pub device_model: String,
     #[pyo3(get)]
-    pub device_os_build_number: String,
+    pub device_os_build_number: Option<String>,
     #[pyo3(get)]
     pub device_os_name: String,
     #[pyo3(get)]
@@ -251,9 +251,9 @@ pub struct Metadata {
     #[pyo3(get)]
     pub project_id: String,
     #[pyo3(get)]
-    pub sdk_name: String,
+    pub sdk_name: Option<String>,
     #[pyo3(get)]
-    pub sdk_version: String,
+    pub sdk_version: Option<String>,
     #[pyo3(get)]
     pub timestamp: i64,
     #[pyo3(get)]
@@ -263,9 +263,9 @@ pub struct Metadata {
     #[pyo3(get)]
     pub transaction_name: String,
     #[pyo3(get)]
-    pub version_code: String,
+    pub version_code: Option<String>,
     #[pyo3(get)]
-    pub version_name: String,
+    pub version_name: Option<String>,
 }
 
 pub trait ProfileInterface {
