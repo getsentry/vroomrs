@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 use pyo3::{pyclass, pymethods, PyErr, PyResult};
 
@@ -7,7 +7,7 @@ use crate::{
     nodetree::CallTreeFunction,
     occurrence::{self, Occurrence},
     sample::v1::SampleProfile,
-    types::{CallTreeError, CallTreesU64, ProfileInterface, Transaction},
+    types::{CallTreeError, CallTreesU64, Metadata, ProfileInterface, Transaction},
     utils::{compress_lz4, decompress_lz4},
 };
 
@@ -389,6 +389,19 @@ impl Profile {
     ///         active thread ID, and optional duration in nanoseconds.
     pub fn get_transaction(&self) -> Transaction {
         self.profile.get_transaction().into_owned()
+    }
+
+    /// Returns metadata information associated with the profile.
+    ///
+    /// This method extracts comprehensive metadata about the profile including
+    /// device information, SDK details, transaction data, and system specifications.
+    ///
+    /// Returns:
+    ///     Metadata
+    ///         A metadata object containing device characteristics, SDK information,
+    ///         transaction details, and other profile-specific data.
+    pub fn get_metadata(&self) -> Metadata {
+        self.profile.get_metadata()
     }
 }
 
