@@ -165,14 +165,21 @@ pub trait ChunkInterface {
     fn as_any(&self) -> &dyn Any;
 }
 
+#[pyclass]
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct Transaction {
+    #[pyo3(get)]
     pub active_thread_id: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[pyo3(get)]
     pub duration_ns: Option<u64>,
+    #[pyo3(get)]
     pub id: String,
+    #[pyo3(get)]
     pub name: String,
+    #[pyo3(get)]
     pub trace_id: String,
+    #[pyo3(get)]
     pub segment_id: String,
 }
 

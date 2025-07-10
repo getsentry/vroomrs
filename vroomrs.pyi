@@ -98,6 +98,16 @@ class Profile:
         """
         ...
 
+    def get_transaction(self) -> "Transaction":
+        """
+        Returns the transaction information associated with the profile.
+
+        Returns:
+            Transaction: The transaction data including ID, name, trace ID, segment ID, 
+                active thread ID, and optional duration in nanoseconds.
+        """
+        ...
+
     def get_retention_days(self) -> int:
         """
         Returns the retention days.
@@ -732,6 +742,32 @@ class Occurrences:
             >>> occurrences.filter_none_type_issues()
         """
         ...
+
+class Transaction:
+    """
+    Represents transaction information associated with a profile.
+    
+    Contains metadata about the transaction including identifiers, timing information,
+    and thread context for the profiled operation.
+    """
+    
+    active_thread_id: int
+    """The ID of the active thread during the transaction."""
+    
+    duration_ns: Optional[int]
+    """The duration of the transaction in nanoseconds, or None if not available."""
+    
+    id: str
+    """The unique identifier for this transaction."""
+    
+    name: str
+    """The name of the transaction."""
+    
+    trace_id: str
+    """The trace ID associated with this transaction."""
+    
+    segment_id: str
+    """The segment ID associated with this transaction."""
 
 def profile_chunk_from_json_str(profile: str, platform: Optional[str] = None) -> ProfileChunk:
     """

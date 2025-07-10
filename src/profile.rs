@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use pyo3::{pyclass, pymethods, PyErr, PyResult};
 
@@ -7,7 +7,7 @@ use crate::{
     nodetree::CallTreeFunction,
     occurrence::{self, Occurrence},
     sample::v1::SampleProfile,
-    types::{CallTreeError, CallTreesU64, ProfileInterface},
+    types::{CallTreeError, CallTreesU64, ProfileInterface, Transaction},
     utils::{compress_lz4, decompress_lz4},
 };
 
@@ -379,6 +379,16 @@ impl Profile {
     ///     >>> profile.set_profile_id("06ccc59502e64154a352e25cb59ccf08")
     pub fn set_profile_id(&mut self, profile_id: String) {
         self.profile.set_profile_id(profile_id);
+    }
+
+    /// Returns the transaction information associated with the profile.
+    ///
+    /// Returns:
+    ///     Transaction
+    ///         The transaction data including ID, name, trace ID, segment ID,
+    ///         active thread ID, and optional duration in nanoseconds.
+    pub fn get_transaction(&self) -> Transaction {
+        self.profile.get_transaction().into_owned()
     }
 }
 
