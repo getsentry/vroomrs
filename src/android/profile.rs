@@ -276,6 +276,46 @@ impl ProfileInterface for AndroidProfile {
     fn set_profile_id(&mut self, profile_id: String) {
         self.profile_id = profile_id
     }
+
+    fn get_metadata(&self) -> crate::types::Metadata {
+        crate::types::Metadata {
+            android_api_level: self.android_api_level.unwrap_or(0),
+            architecture: self
+                .architecture
+                .as_deref()
+                .unwrap_or("unknown")
+                .to_string(),
+            device_classification: self.device_classification.clone(),
+            device_locale: self.device_locale.clone(),
+            device_manufacturer: self.device_manufacturer.clone(),
+            device_model: self.device_model.clone(),
+            device_os_build_number: self
+                .device_os_build_number
+                .as_deref()
+                .unwrap_or("")
+                .to_string(),
+            device_os_name: self.device_os_name.clone(),
+            device_os_version: self.device_os_version.clone(),
+            id: self.profile_id.clone(),
+            project_id: self.project_id.to_string(),
+            sdk_name: self
+                .client_sdk
+                .as_ref()
+                .map(|sdk| sdk.name.clone())
+                .unwrap_or_default(),
+            sdk_version: self
+                .client_sdk
+                .as_ref()
+                .map(|sdk| sdk.version.clone())
+                .unwrap_or_default(),
+            timestamp: self.timestamp.timestamp(),
+            trace_duration_ms: self.duration_ns as f64 / 1_000_000.0,
+            transaction_id: self.transaction_id.clone(),
+            transaction_name: self.transaction_name.clone(),
+            version_code: self.version_code.clone(),
+            version_name: self.version_name.clone(),
+        }
+    }
 }
 
 // CallTree generation expect activeThreadID to be set in

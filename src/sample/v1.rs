@@ -556,6 +556,48 @@ impl ProfileInterface for SampleProfile {
     fn set_profile_id(&mut self, profile_id: String) {
         self.event_id = profile_id
     }
+
+    fn get_metadata(&self) -> crate::types::Metadata {
+        crate::types::Metadata {
+            android_api_level: 0, // Not available in v1 sample profiles
+            architecture: self.device.architecture.clone(),
+            device_classification: self
+                .device
+                .classification
+                .as_deref()
+                .unwrap_or("")
+                .to_string(),
+            device_locale: self.device.locale.as_deref().unwrap_or("").to_string(),
+            device_manufacturer: self
+                .device
+                .manufacturer
+                .as_deref()
+                .unwrap_or("")
+                .to_string(),
+            device_model: self.device.model.as_deref().unwrap_or("").to_string(),
+            device_os_build_number: self.os.build_number.as_deref().unwrap_or("").to_string(),
+            device_os_name: self.os.name.clone(),
+            device_os_version: self.os.version.clone(),
+            id: self.event_id.clone(),
+            project_id: self.project_id.to_string(),
+            sdk_name: self
+                .client_sdk
+                .as_ref()
+                .map(|sdk| sdk.name.clone())
+                .unwrap_or_default(),
+            sdk_version: self
+                .client_sdk
+                .as_ref()
+                .map(|sdk| sdk.version.clone())
+                .unwrap_or_default(),
+            timestamp: self.timestamp.timestamp(),
+            trace_duration_ms: self.duration_ns() as f64 / 1_000_000.0,
+            transaction_id: self.transaction.id.clone(),
+            transaction_name: self.transaction.name.clone(),
+            version_code: "".to_string(), // Not available in v1 sample profiles
+            version_name: self.release.as_deref().unwrap_or("").to_string(),
+        }
+    }
 }
 
 #[cfg(test)]

@@ -98,6 +98,29 @@ class Profile:
         """
         ...
 
+    def get_transaction(self) -> "Transaction":
+        """
+        Returns the transaction information associated with the profile.
+
+        Returns:
+            Transaction: The transaction data including ID, name, trace ID, segment ID, 
+                active thread ID, and optional duration in nanoseconds.
+        """
+        ...
+
+    def get_metadata(self) -> "Metadata":
+        """
+        Returns metadata information associated with the profile.
+
+        This method extracts comprehensive metadata about the profile including
+        device information, SDK details, transaction data, and system specifications.
+
+        Returns:
+            Metadata: A metadata object containing device characteristics, SDK information,
+                transaction details, and other profile-specific data.
+        """
+        ...
+
     def get_retention_days(self) -> int:
         """
         Returns the retention days.
@@ -732,6 +755,97 @@ class Occurrences:
             >>> occurrences.filter_none_type_issues()
         """
         ...
+
+class Transaction:
+    """
+    Represents transaction information associated with a profile.
+    
+    Contains metadata about the transaction including identifiers, timing information,
+    and thread context for the profiled operation.
+    """
+    
+    active_thread_id: int
+    """The ID of the active thread during the transaction."""
+    
+    duration_ns: Optional[int]
+    """The duration of the transaction in nanoseconds, or None if not available."""
+    
+    id: str
+    """The unique identifier for this transaction."""
+    
+    name: str
+    """The name of the transaction."""
+    
+    trace_id: str
+    """The trace ID associated with this transaction."""
+    
+    segment_id: str
+    """The segment ID associated with this transaction."""
+
+class Metadata:
+    """
+    Represents comprehensive metadata information associated with a profile.
+    
+    Contains device characteristics, SDK information, transaction details,
+    and other profile-specific data for analysis and debugging purposes.
+    """
+    
+    android_api_level: int
+    """The Android API level of the device."""
+    
+    architecture: str
+    """The device architecture (e.g., 'arm64', 'x86_64')."""
+    
+    device_classification: str
+    """The device classification or category."""
+    
+    device_locale: str
+    """The device locale setting."""
+    
+    device_manufacturer: str
+    """The device manufacturer name."""
+    
+    device_model: str
+    """The device model name."""
+    
+    device_os_build_number: str
+    """The device OS build number."""
+    
+    device_os_name: str
+    """The device operating system name."""
+    
+    device_os_version: str
+    """The device operating system version."""
+    
+    id: str
+    """The unique identifier for this profile."""
+    
+    project_id: str
+    """The project ID as a string."""
+    
+    sdk_name: str
+    """The name of the SDK used to collect this profile."""
+    
+    sdk_version: str
+    """The version of the SDK used to collect this profile."""
+    
+    timestamp: int
+    """The timestamp when the profile was collected (Unix timestamp)."""
+    
+    trace_duration_ms: float
+    """The duration of the trace in milliseconds."""
+    
+    transaction_id: str
+    """The unique identifier for the transaction."""
+    
+    transaction_name: str
+    """The name of the transaction."""
+    
+    version_code: str
+    """The version code of the application."""
+    
+    version_name: str
+    """The version name of the application."""
 
 def profile_chunk_from_json_str(profile: str, platform: Optional[str] = None) -> ProfileChunk:
     """

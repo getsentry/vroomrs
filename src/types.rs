@@ -165,14 +165,21 @@ pub trait ChunkInterface {
     fn as_any(&self) -> &dyn Any;
 }
 
+#[pyclass]
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct Transaction {
+    #[pyo3(get)]
     pub active_thread_id: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[pyo3(get)]
     pub duration_ns: Option<u64>,
+    #[pyo3(get)]
     pub id: String,
+    #[pyo3(get)]
     pub name: String,
+    #[pyo3(get)]
     pub trace_id: String,
+    #[pyo3(get)]
     pub segment_id: String,
 }
 
@@ -217,6 +224,50 @@ pub struct TransactionMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub segment_id: Option<String>,
 }
+
+#[pyclass]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct Metadata {
+    #[pyo3(get)]
+    pub android_api_level: u32,
+    #[pyo3(get)]
+    pub architecture: String,
+    #[pyo3(get)]
+    pub device_classification: String,
+    #[pyo3(get)]
+    pub device_locale: String,
+    #[pyo3(get)]
+    pub device_manufacturer: String,
+    #[pyo3(get)]
+    pub device_model: String,
+    #[pyo3(get)]
+    pub device_os_build_number: String,
+    #[pyo3(get)]
+    pub device_os_name: String,
+    #[pyo3(get)]
+    pub device_os_version: String,
+    #[pyo3(get)]
+    pub id: String,
+    #[pyo3(get)]
+    pub project_id: String,
+    #[pyo3(get)]
+    pub sdk_name: String,
+    #[pyo3(get)]
+    pub sdk_version: String,
+    #[pyo3(get)]
+    pub timestamp: i64,
+    #[pyo3(get)]
+    pub trace_duration_ms: f64,
+    #[pyo3(get)]
+    pub transaction_id: String,
+    #[pyo3(get)]
+    pub transaction_name: String,
+    #[pyo3(get)]
+    pub version_code: String,
+    #[pyo3(get)]
+    pub version_name: String,
+}
+
 pub trait ProfileInterface {
     fn get_environment(&self) -> Option<&str>;
     fn get_profile_id(&self) -> &str;
@@ -239,6 +290,7 @@ pub trait ProfileInterface {
     fn get_measurements(&self) -> Option<&HashMap<String, Measurement>>;
     fn is_sampled(&self) -> bool;
     fn set_profile_id(&mut self, profile_id: String);
+    fn get_metadata(&self) -> Metadata;
 
     /// Serialize the given data structure as a JSON byte vector.
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;
