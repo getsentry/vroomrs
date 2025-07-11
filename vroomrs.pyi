@@ -56,12 +56,12 @@ class Profile:
         """
         ...
     
-    def get_received(self) -> float:
+    def get_received(self) -> int:
         """
         Returns the received timestamp.
 
         Returns:
-            float: The received timestamp.
+            int: The received timestamp.
         """
         ...
     

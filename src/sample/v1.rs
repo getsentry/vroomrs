@@ -109,7 +109,7 @@ pub struct SampleProfile {
 
     pub project_id: u64,
 
-    pub received: f64,
+    pub received: i64,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
@@ -372,7 +372,7 @@ impl ProfileInterface for SampleProfile {
         self.project_id
     }
 
-    fn get_received(&self) -> f64 {
+    fn get_received(&self) -> i64 {
         self.received
     }
 

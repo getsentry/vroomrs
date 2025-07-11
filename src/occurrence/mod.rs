@@ -784,7 +784,7 @@ pub fn new_occurrence(profile: &dyn ProfileInterface, mut ni: NodeInfo) -> Occur
         event_id: event_id(),
         platform: platform.to_string(),
         project_id: profile.get_project_id(),
-        received: DateTime::from_timestamp_micros((profile.get_received() * 1e6) as i64)
+        received: DateTime::from_timestamp(profile.get_received(), 0)
             .expect("timestamp out of range"),
         release: profile.get_release().map(|s| s.to_string()),
         stacktrace: StackTrace {

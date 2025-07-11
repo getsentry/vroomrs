@@ -173,8 +173,8 @@ impl Profile {
     /// Returns the received timestamp.
     ///
     /// Returns:
-    ///     float
-    fn get_received(&self) -> f64 {
+    ///     int
+    fn get_received(&self) -> i64 {
         self.profile.get_received()
     }
 

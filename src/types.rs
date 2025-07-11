@@ -274,7 +274,7 @@ pub trait ProfileInterface {
     fn get_organization_id(&self) -> u64;
     fn get_platform(&self) -> Platform;
     fn get_project_id(&self) -> u64;
-    fn get_received(&self) -> f64;
+    fn get_received(&self) -> i64;
     fn get_release(&self) -> Option<&str>;
     fn get_retention_days(&self) -> i32;
     fn get_timestamp(&self) -> DateTime<Utc>;
