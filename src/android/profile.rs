@@ -68,7 +68,7 @@ pub struct AndroidProfile {
 
     project_id: u64,
 
-    received: f64,
+    received: i64,
 
     release: Option<String>,
 
@@ -134,7 +134,7 @@ impl ProfileInterface for AndroidProfile {
         self.project_id
     }
 
-    fn get_received(&self) -> f64 {
+    fn get_received(&self) -> i64 {
         self.received
     }
 
