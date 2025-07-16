@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use once_cell::sync::Lazy;
-use pyo3::{pyclass, pymethods};
+use pyo3::{pyclass, pymethods, PyErr};
 use serde::Serialize;
 use uuid::Uuid;
 
@@ -380,6 +380,25 @@ impl Occurrence {
     ///         Number of samples where this issue was detected.
     pub fn get_sample_count(&self) -> u64 {
         self.sample_count
+    }
+
+    /// Serializes the occurrence to a JSON string.
+    ///
+    /// Returns:
+    ///     str
+    ///         A JSON string representation of the occurrence.
+    ///
+    /// Raises:
+    ///     ValueError
+    ///         If the serialization fails due to invalid data.
+    ///
+    /// Example:
+    ///     >>> occurrence = occurrences.occurrences[0]
+    ///     >>> json_str = occurrence.to_json_str()
+    ///     >>> print(json_str)
+    pub fn to_json_str(&self) -> Result<String, PyErr> {
+        serde_json::to_string(self)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
     }
 }
 
