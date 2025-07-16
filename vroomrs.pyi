@@ -717,6 +717,23 @@ class Occurrence:
         """
         ...
 
+    def to_json_str(self) -> str:
+        """
+        Serializes the occurrence to a JSON string.
+
+        Returns:
+            str: A JSON string representation of the occurrence.
+
+        Raises:
+            ValueError: If the serialization fails due to invalid data.
+
+        Example:
+            >>> occurrence = occurrences.occurrences[0]
+            >>> json_str = occurrence.to_json_str()
+            >>> print(json_str)
+        """
+        ...
+
 class Occurrences:
     """
     A wrapper class containing a list of Occurrence objects.
