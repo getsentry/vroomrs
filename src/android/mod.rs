@@ -43,6 +43,7 @@ pub struct AndroidThread {
 
 #[derive(Serialize, Deserialize, Debug, Default, Eq, PartialEq, Clone)]
 struct AndroidMethod {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     class_name: String,
     data: Option<Data>,
     // method_id is not optional, but in our Vroom service,
@@ -54,8 +55,11 @@ struct AndroidMethod {
     id: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     inline_frames: Option<Vec<AndroidMethod>>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     name: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     signature: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     source_file: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     source_line: Option<u32>,
