@@ -42,39 +42,6 @@ pub struct ChunkMeasurementValue {
 
     value: f64,
 }
-
-#[pyclass(eq, eq_int)]
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy, Default, Hash)]
-#[serde(rename_all = "lowercase")]
-pub enum Platform {
-    Android,
-    Cocoa,
-    Java,
-    JavaScript,
-    Node,
-    Php,
-    Python,
-    Rust,
-    #[default]
-    None,
-}
-
-impl fmt::Display for Platform {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Platform::Android => write!(f, "android"),
-            Platform::Cocoa => write!(f, "cocoa"),
-            Platform::Java => write!(f, "java"),
-            Platform::JavaScript => write!(f, "javascript"),
-            Platform::Node => write!(f, "node"),
-            Platform::Php => write!(f, "php"),
-            Platform::Python => write!(f, "python"),
-            Platform::Rust => write!(f, "rust"),
-            Platform::None => write!(f, "none"),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ClientSDK {
     pub name: String,
@@ -140,7 +107,7 @@ pub trait ChunkInterface {
     fn get_environment(&self) -> Option<&str>;
     fn get_chunk_id(&self) -> &str;
     fn get_organization_id(&self) -> u64;
-    fn get_platform(&self) -> Platform;
+    fn get_platform(&self) -> String;
     fn get_profiler_id(&self) -> &str;
     fn get_project_id(&self) -> u64;
     fn get_received(&self) -> f64;
@@ -272,7 +239,7 @@ pub trait ProfileInterface {
     fn get_environment(&self) -> Option<&str>;
     fn get_profile_id(&self) -> &str;
     fn get_organization_id(&self) -> u64;
-    fn get_platform(&self) -> Platform;
+    fn get_platform(&self) -> String;
     fn get_project_id(&self) -> u64;
     fn get_received(&self) -> i64;
     fn get_release(&self) -> Option<&str>;

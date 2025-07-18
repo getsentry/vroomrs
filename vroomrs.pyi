@@ -34,16 +34,7 @@ class Profile:
         Returns the profile platform.
 
         Returns:
-            str: The profile's platform. One of the following values:
-                * android
-                * cocoa
-                * java
-                * javascript
-                * php
-                * node
-                * python
-                * rust
-                * none
+            str: The profile's platform.
         """
         ...
 
@@ -300,16 +291,7 @@ class ProfileChunk:
         Returns the profile platform.
 
         Returns:
-            str: The profile's platform. One of the following values:
-                * android
-                * cocoa
-                * java
-                * javascript
-                * php
-                * node
-                * python
-                * rust
-                * none
+            str: The profile's platform.
         """
         ...
     

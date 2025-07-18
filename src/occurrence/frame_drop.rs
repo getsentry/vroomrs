@@ -280,7 +280,7 @@ mod tests {
         use crate::sample::v1::{
             Measurement, MeasurementValue, Profile as SampleProfileData, SampleProfile,
         };
-        use crate::types::{Platform, ProfileInterface, Transaction};
+        use crate::types::{ProfileInterface, Transaction};
 
         struct TestCase {
             name: String,
@@ -310,7 +310,7 @@ mod tests {
                         name: "some".to_string(),
                         ..Default::default()
                     },
-                    platform: Platform::Cocoa,
+                    platform: "cocoa".to_string(),
                     profile: SampleProfileData {
                         frames: vec![],
                         samples: vec![
@@ -483,7 +483,7 @@ mod tests {
                         name: "some".to_string(),
                         ..Default::default()
                     },
-                    platform: Platform::Cocoa,
+                    platform: "cocoa".to_string(),
                     profile: SampleProfileData {
                         frames: vec![],
                         samples: vec![
@@ -723,7 +723,7 @@ mod tests {
                         name: "some".to_string(),
                         ..Default::default()
                     },
-                    platform: Platform::Cocoa,
+                    platform: "cocoa".to_string(),
                     profile: SampleProfileData {
                         frames: vec![],
                         samples: vec![
@@ -953,7 +953,7 @@ mod tests {
                         name: "some".to_string(),
                         ..Default::default()
                     },
-                    platform: Platform::Cocoa,
+                    platform: "cocoa".to_string(),
                     profile: SampleProfileData {
                         frames: vec![],
                         samples: vec![

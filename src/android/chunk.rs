@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     nodetree::Node,
-    types::{CallTreeError, CallTreesStr, ChunkInterface, ClientSDK, DebugMeta, Platform},
+    types::{CallTreeError, CallTreesStr, ChunkInterface, ClientSDK, DebugMeta},
 };
 
 use super::Android;
@@ -22,7 +22,7 @@ pub struct AndroidChunk {
     duration_ns: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     environment: Option<String>,
-    platform: Platform,
+    platform: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     release: Option<String>,
     timestamp: f64,
@@ -67,8 +67,8 @@ impl ChunkInterface for AndroidChunk {
         self.organization_id
     }
 
-    fn get_platform(&self) -> Platform {
-        self.platform
+    fn get_platform(&self) -> String {
+        self.platform.clone()
     }
 
     fn get_profiler_id(&self) -> &str {

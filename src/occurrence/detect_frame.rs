@@ -4,7 +4,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Duration};
 use crate::{
     frame::Frame,
     nodetree::Node,
-    types::{CallTreesU64, Platform, ProfileInterface},
+    types::{CallTreesU64, ProfileInterface},
     MAX_STACK_DEPTH,
 };
 
@@ -183,11 +183,11 @@ impl DetectFrameOptions for DetectAndroidFrameOptions {
 
 /// Platform-specific frame detection job configurations.
 pub static DETECT_FRAME_JOBS: Lazy<
-    HashMap<Platform, Vec<Box<dyn DetectFrameOptions + Send + Sync>>>,
+    HashMap<String, Vec<Box<dyn DetectFrameOptions + Send + Sync>>>,
 > = Lazy::new(|| {
     HashMap::from([
         // Node.js platform
-        (Platform::Node, vec![
+        ("node".to_string(), vec![
             Box::new(DetectExactFrameOptions {
                 active_thread_only: true,
                 duration_threshold: Duration::from_millis(0),
@@ -252,7 +252,7 @@ pub static DETECT_FRAME_JOBS: Lazy<
             }) as Box<dyn DetectFrameOptions + Send + Sync>,
         ]),
         // Cocoa platform
-        (Platform::Cocoa, vec![
+        ("cocoa".to_string(), vec![
             Box::new(DetectExactFrameOptions {
                 active_thread_only: true,
                 duration_threshold: Duration::from_millis(16),
@@ -396,7 +396,7 @@ pub static DETECT_FRAME_JOBS: Lazy<
             }) as Box<dyn DetectFrameOptions + Send + Sync>,
         ]),
         // Android platform
-        (Platform::Android, vec![
+        ("android".to_string(), vec![
             Box::new(DetectAndroidFrameOptions {
                 active_thread_only: true,
                 duration_threshold: Duration::from_millis(40),

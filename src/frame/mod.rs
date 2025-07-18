@@ -7,8 +7,6 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::types::Platform;
-
 static WINDOWS_PATH_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?i)^([a-z]:\\|\\\\)").unwrap());
 static PACKAGE_EXTENSION_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"\.(dylib|so|a|dll|exe)$").unwrap());
@@ -64,7 +62,7 @@ pub struct Frame {
     pub symbol: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub platform: Option<Platform>,
+    pub platform: Option<String>,
 
     #[serde(skip)]
     pub is_react_native: bool,
@@ -231,7 +229,7 @@ impl Frame {
             .is_none_or(|path| !path.contains("/vendor/"))
     }
 
-    fn set_in_app(&mut self, p: Platform) {
+    fn set_in_app(&mut self, p: &str) {
         // for react-native the in_app field seems to be messed up most of the times,
         // with system libraries and other frames that are clearly system frames
         // labelled as `in_app`.
@@ -240,17 +238,17 @@ impl Frame {
         //
         // For this reason, for react-native app (p.Platform != f.Platform), we skip the f.InApp!=nil
         // check as this field would be highly unreliable, and rely on our rules instead
-        if self.in_app.is_some() && self.platform.is_some_and(|fp| p == fp) {
+        if self.in_app.is_some() && self.platform.as_ref().is_some_and(|fp| p == fp) {
             return;
         }
 
-        let is_application = match self.platform.unwrap() {
-            Platform::Node => self.is_node_application_frame(),
-            Platform::JavaScript => self.is_javascript_application_frame(),
-            Platform::Cocoa => self.is_cocoa_application_frame(),
-            Platform::Rust => self.is_rust_application_frame(),
-            Platform::Python => self.is_python_application_frame(),
-            Platform::Php => self.is_php_application_frame(),
+        let is_application = match self.platform.as_ref().unwrap().as_str() {
+            "node" => self.is_node_application_frame(),
+            "javascript" => self.is_javascript_application_frame(),
+            "cocoa" => self.is_cocoa_application_frame(),
+            "rust" => self.is_rust_application_frame(),
+            "python" => self.is_python_application_frame(),
+            "php" => self.is_php_application_frame(),
             _ => false,
         };
 
@@ -262,9 +260,9 @@ impl Frame {
         self.in_app.unwrap_or(false)
     }
 
-    fn set_platform(&mut self, p: Platform) {
+    fn set_platform(&mut self, p: &str) {
         if self.platform.is_none() {
-            self.platform = Some(p);
+            self.platform = Some(p.to_string());
         }
     }
 
@@ -278,7 +276,7 @@ impl Frame {
         }
     }
 
-    pub fn normalize(&mut self, p: Platform) {
+    pub fn normalize(&mut self, p: &str) {
         // Call order is important since set_in_app uses status and platform
         self.set_status();
         self.set_platform(p);

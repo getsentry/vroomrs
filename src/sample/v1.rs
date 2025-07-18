@@ -3,7 +3,7 @@ use crate::{
     nodetree::Node,
     sample::SampleError,
     types::{
-        CallTreeError, CallTreesU64, ClientSDK, DebugMeta, Platform, ProfileInterface, Transaction,
+        CallTreeError, CallTreesU64, ClientSDK, DebugMeta, ProfileInterface, Transaction,
         TransactionMetadata,
     },
 };
@@ -105,7 +105,7 @@ pub struct SampleProfile {
 
     pub organization_id: u64,
 
-    pub platform: Platform,
+    pub platform: String,
 
     pub project_id: u64,
 
@@ -343,8 +343,8 @@ fn find_common_frames<'a>(
 }
 
 impl ProfileInterface for SampleProfile {
-    fn get_platform(&self) -> Platform {
-        self.platform
+    fn get_platform(&self) -> String {
+        self.platform.clone()
     }
 
     /// Serialize the given data structure as a JSON byte vector.
@@ -390,11 +390,11 @@ impl ProfileInterface for SampleProfile {
 
     fn normalize(&mut self) {
         for frame in &mut self.profile.frames {
-            frame.normalize(self.platform);
+            frame.normalize(&self.platform);
         }
-        if self.platform == Platform::Cocoa {
+        if self.platform.as_str() == "cocoa" {
             self.trim_cocoa_stacks();
-        } else if self.platform == Platform::Python {
+        } else if self.platform.as_str() == "python" {
             self.profile.trim_python_stacks();
         }
 
@@ -592,7 +592,7 @@ mod tests {
     use crate::{
         frame::{self, Data, Frame},
         sample::v1::{Profile, Sample, SampleProfile},
-        types::{CallTreesU64, Platform, ProfileInterface, Transaction},
+        types::{CallTreesU64, ProfileInterface, Transaction},
     };
 
     #[test]
@@ -632,7 +632,7 @@ mod tests {
                                 }),
                                 function: Some("function1".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -642,7 +642,7 @@ mod tests {
                                 }),
                                 function: Some("function2".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -652,7 +652,7 @@ mod tests {
                                 }),
                                 function: Some("main".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -660,7 +660,7 @@ mod tests {
                                     symbolicator_status: Some("missing".to_string()),
                                     ..Default::default()
                                 }),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                         ], // end frames definition
@@ -679,7 +679,7 @@ mod tests {
                                 }),
                                 function: Some("function1".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -689,7 +689,7 @@ mod tests {
                                 }),
                                 function: Some("function2".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -699,7 +699,7 @@ mod tests {
                                 }),
                                 function: Some("main".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -707,7 +707,7 @@ mod tests {
                                     symbolicator_status: Some("missing".to_string()),
                                     ..Default::default()
                                 }),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                         ], // end frames definition
@@ -729,7 +729,7 @@ mod tests {
                                 }),
                                 function: Some("function1".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -739,7 +739,7 @@ mod tests {
                                 }),
                                 function: Some("function2".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -749,7 +749,7 @@ mod tests {
                                 }),
                                 function: Some("main".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -757,7 +757,7 @@ mod tests {
                                     symbolicator_status: Some("missing".to_string()),
                                     ..Default::default()
                                 }),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -767,7 +767,7 @@ mod tests {
                                 }),
                                 function: Some("start_sim".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                         ], // end frames definition
@@ -786,7 +786,7 @@ mod tests {
                                 }),
                                 function: Some("function1".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -796,7 +796,7 @@ mod tests {
                                 }),
                                 function: Some("function2".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -806,7 +806,7 @@ mod tests {
                                 }),
                                 function: Some("main".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -814,7 +814,7 @@ mod tests {
                                     symbolicator_status: Some("missing".to_string()),
                                     ..Default::default()
                                 }),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -824,7 +824,7 @@ mod tests {
                                 }),
                                 function: Some("start_sim".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                         ], // end frames definition
@@ -846,7 +846,7 @@ mod tests {
                                 }),
                                 function: Some("function1".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -856,7 +856,7 @@ mod tests {
                                 }),
                                 function: Some("function2".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -866,7 +866,7 @@ mod tests {
                                 }),
                                 function: Some("unsymbolicated_main".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -874,7 +874,7 @@ mod tests {
                                     symbolicator_status: Some("missing".to_string()),
                                     ..Default::default()
                                 }),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -884,7 +884,7 @@ mod tests {
                                 }),
                                 function: Some("start_sim".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                         ], // end frames definition
@@ -903,7 +903,7 @@ mod tests {
                                 }),
                                 function: Some("function1".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -913,7 +913,7 @@ mod tests {
                                 }),
                                 function: Some("function2".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -923,7 +923,7 @@ mod tests {
                                 }),
                                 function: Some("unsymbolicated_main".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -931,7 +931,7 @@ mod tests {
                                     symbolicator_status: Some("missing".to_string()),
                                     ..Default::default()
                                 }),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -941,7 +941,7 @@ mod tests {
                                 }),
                                 function: Some("start_sim".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                         ], // end frames definition
@@ -963,7 +963,7 @@ mod tests {
                                 }),
                                 function: Some("function1".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -973,7 +973,7 @@ mod tests {
                                 }),
                                 function: Some("function2".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -983,7 +983,7 @@ mod tests {
                                 }),
                                 function: Some("main".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -991,7 +991,7 @@ mod tests {
                                     symbolicator_status: Some("missing".to_string()),
                                     ..Default::default()
                                 }),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -1001,7 +1001,7 @@ mod tests {
                                 }),
                                 function: Some("start_sim".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                         ], // end frames definition
@@ -1026,7 +1026,7 @@ mod tests {
                                 }),
                                 function: Some("function1".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -1036,7 +1036,7 @@ mod tests {
                                 }),
                                 function: Some("function2".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -1046,7 +1046,7 @@ mod tests {
                                 }),
                                 function: Some("main".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -1054,7 +1054,7 @@ mod tests {
                                     symbolicator_status: Some("missing".to_string()),
                                     ..Default::default()
                                 }),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                             frame::Frame {
@@ -1064,7 +1064,7 @@ mod tests {
                                 }),
                                 function: Some("start_sim".to_string()),
                                 in_app: Some(true),
-                                platform: Some(Platform::Cocoa),
+                                platform: Some("cocoa".to_string()),
                                 ..Default::default()
                             },
                         ], // end frames definition
@@ -1112,7 +1112,7 @@ mod tests {
                             line: Some(11),
                             function: Some("<module>".to_string()),
                             path: Some("/usr/src/app/<string>".to_string()),
-                            platform: Some(Platform::Python),
+                            platform: Some("python".to_string()),
                             ..Default::default()
                         },
                         Frame {
@@ -1122,7 +1122,7 @@ mod tests {
                             line: Some(98),
                             function: Some("foobar".to_string()),
                             path: Some("/usr/src/app/util.py".to_string()),
-                            platform: Some(Platform::Python),
+                            platform: Some("python".to_string()),
                             ..Default::default()
                         },
                     ],
@@ -1138,7 +1138,7 @@ mod tests {
                             line: Some(11),
                             function: Some("<module>".to_string()),
                             path: Some("/usr/src/app/<string>".to_string()),
-                            platform: Some(Platform::Python),
+                            platform: Some("python".to_string()),
                             ..Default::default()
                         },
                         Frame {
@@ -1148,7 +1148,7 @@ mod tests {
                             line: Some(98),
                             function: Some("foobar".to_string()),
                             path: Some("/usr/src/app/util.py".to_string()),
-                            platform: Some(Platform::Python),
+                            platform: Some("python".to_string()),
                             ..Default::default()
                         },
                     ],
