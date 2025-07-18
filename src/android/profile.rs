@@ -31,7 +31,7 @@ pub struct AndroidProfile {
     #[serde(default, skip_serializing_if = "DebugMeta::is_empty")]
     debug_meta: DebugMeta,
 
-    device_classification: String,
+    device_classification: Option<String>,
 
     device_locale: String,
 
@@ -284,7 +284,13 @@ impl ProfileInterface for AndroidProfile {
                 .as_deref()
                 .unwrap_or("unknown")
                 .to_string(),
-            device_classification: Some(self.device_classification.clone()),
+            device_classification: Some(
+                self.device_classification
+                    .as_ref()
+                    .map_or(String::new(), |device_classification| {
+                        device_classification.to_owned()
+                    }),
+            ),
             device_locale: Some(self.device_locale.clone()),
             device_manufacturer: Some(self.device_manufacturer.clone()),
             device_model: self.device_model.clone(),
