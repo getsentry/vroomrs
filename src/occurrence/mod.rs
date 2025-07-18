@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{
     android, frame,
-    types::{CallTreesU64, DebugMeta, Platform, ProfileInterface},
+    types::{CallTreesU64, DebugMeta, ProfileInterface},
 };
 
 mod detect_frame;
@@ -655,7 +655,7 @@ pub fn generate_evidence_data(
     match node_info.category.as_str() {
         FRAME_DROP => {}
         _ => {
-            if profile.get_platform() == Platform::Android {
+            if profile.get_platform().as_str() == "android" {
                 evidence_data.sample_count = Some(node_info.node.sample_count);
             }
         }
@@ -724,8 +724,8 @@ pub fn generate_evidence_display(
                 Duration::from_micros(10),
             );
 
-            let duration_str = match profile.get_platform() {
-                Platform::Android => {
+            let duration_str = match profile.get_platform().as_str() {
+                "android" => {
                     format!("{duration:?} ({profile_percentage:.2}% of the profile)")
                 }
                 _ => {
@@ -778,8 +778,8 @@ pub fn new_occurrence(profile: &dyn ProfileInterface, mut ni: NodeInfo) -> Occur
     let mut platform = profile.get_platform();
 
     // Handle Android platform special case
-    if platform == Platform::Android {
-        platform = Platform::Java;
+    if platform.as_str() == "android" {
+        platform = "java".to_string();
         normalize_android_stack_trace(&mut ni.stack_trace);
         ni.node.name =
             android::strip_package_name_from_full_method_name(&ni.node.name, &ni.node.package);

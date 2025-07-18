@@ -8,7 +8,7 @@ use std::{
 use once_cell::sync::Lazy;
 use pyo3::{pyclass, pymethods};
 
-use crate::{frame::Frame, types::Platform};
+use crate::frame::Frame;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
 pub struct Node {
@@ -328,16 +328,16 @@ fn should_aggregate_frame(frame: &Frame) -> bool {
     }
 
     // hard coded list of functions that we should not aggregate by
-    if let Some(platform) = frame.platform {
-        if let Some(function_deny_list) = FUNCTION_DENY_LIST_BY_PLATFORM.get(&platform) {
+    if let Some(platform) = frame.platform.as_ref() {
+        if let Some(function_deny_list) = FUNCTION_DENY_LIST_BY_PLATFORM.get(platform) {
             if function_deny_list.contains(frame_function) {
                 return false;
             }
         }
     }
 
-    if let Some(platform) = frame.platform {
-        if OBFUSCATION_SUPPORTED_PLATFORMS.contains(&platform) {
+    if let Some(platform) = frame.platform.as_ref() {
+        if OBFUSCATION_SUPPORTED_PLATFORMS.contains(platform) {
             /*
                 There are 4 possible deobfuscation statuses
                 1. deobfuscated	- The frame was successfully deobfuscated.
@@ -366,7 +366,7 @@ fn should_aggregate_frame(frame: &Frame) -> bool {
             }
         }
 
-        if SYMBOLICATION_SUPPORTED_PLATFORMS.contains(&platform) {
+        if SYMBOLICATION_SUPPORTED_PLATFORMS.contains(platform) {
             return is_symbolicated_frame(frame);
         }
     }
@@ -376,13 +376,13 @@ fn should_aggregate_frame(frame: &Frame) -> bool {
 }
 
 fn is_symbolicated_frame(frame: &Frame) -> bool {
-    if let Some(platform) = frame.platform {
-        if platform == Platform::JavaScript && frame.is_react_native {
+    if let Some(platform) = frame.platform.as_ref() {
+        if platform.as_str() == "javascript" && frame.is_react_native {
             return frame.data.as_ref().is_some_and(|data| {
                 data.js_symbolicated
                     .is_some_and(|js_symbolicated| js_symbolicated)
             });
-        } else if platform == Platform::JavaScript || platform == Platform::Node {
+        } else if platform.as_str() == "javascript" || platform.as_str() == "node" {
             // else, if it's not a react-native but simply a js frame from either
             // browser js or node, for now we'll simply consider everything as symbolicated
             // and just ingest into metrics
@@ -396,14 +396,19 @@ fn is_symbolicated_frame(frame: &Frame) -> bool {
     })
 }
 
-pub(crate) static FUNCTION_DENY_LIST_BY_PLATFORM: Lazy<HashMap<Platform, HashSet<&'static str>>> =
-    Lazy::new(|| HashMap::from([(Platform::Cocoa, HashSet::from(["main"]))]));
+pub(crate) static FUNCTION_DENY_LIST_BY_PLATFORM: Lazy<HashMap<String, HashSet<&'static str>>> =
+    Lazy::new(|| HashMap::from([("cocoa".to_string(), HashSet::from(["main"]))]));
 
-pub(crate) static OBFUSCATION_SUPPORTED_PLATFORMS: Lazy<HashSet<Platform>> =
-    Lazy::new(|| HashSet::from([Platform::Android, Platform::Java]));
+pub(crate) static OBFUSCATION_SUPPORTED_PLATFORMS: Lazy<HashSet<String>> =
+    Lazy::new(|| HashSet::from(["android".to_string(), "java".to_string()]));
 
-pub(crate) static SYMBOLICATION_SUPPORTED_PLATFORMS: Lazy<HashSet<Platform>> =
-    Lazy::new(|| HashSet::from([Platform::JavaScript, Platform::Node, Platform::Cocoa]));
+pub(crate) static SYMBOLICATION_SUPPORTED_PLATFORMS: Lazy<HashSet<String>> = Lazy::new(|| {
+    HashSet::from([
+        "javascript".to_string(),
+        "node".to_string(),
+        "cocoa".to_string(),
+    ])
+});
 
 #[cfg(test)]
 mod tests {
@@ -413,7 +418,6 @@ mod tests {
     use crate::{
         frame::{Data, Frame},
         nodetree::{is_symbolicated_frame, CallTreeFunction, Node},
-        types::Platform,
     };
 
     use pretty_assertions::assert_eq;
@@ -431,7 +435,7 @@ mod tests {
                 name: "react-native-symbolicated".to_string(),
                 frame: Frame {
                     is_react_native: true,
-                    platform: Some(Platform::JavaScript),
+                    platform: Some("javascript".to_string()),
                     data: Some(Data {
                         js_symbolicated: Some(true),
                         ..Default::default()
@@ -444,7 +448,7 @@ mod tests {
                 name: "react-native-not-symbolicated".to_string(),
                 frame: Frame {
                     is_react_native: true,
-                    platform: Some(Platform::JavaScript),
+                    platform: Some("javascript".to_string()),
                     data: Some(Data {
                         ..Default::default()
                     }),
@@ -455,7 +459,7 @@ mod tests {
             TestStruct {
                 name: "browser-js".to_string(),
                 frame: Frame {
-                    platform: Some(Platform::JavaScript),
+                    platform: Some("javascript".to_string()),
                     data: Some(Data {
                         ..Default::default()
                     }),
@@ -466,7 +470,7 @@ mod tests {
             TestStruct {
                 name: "nodejs".to_string(),
                 frame: Frame {
-                    platform: Some(Platform::Node),
+                    platform: Some("node".to_string()),
                     data: Some(Data {
                         ..Default::default()
                     }),
@@ -507,7 +511,7 @@ mod tests {
                     duration_ns: 10,
                     is_application: true,
                     frame: Frame {
-                        platform: Some(Platform::Python),
+                        platform: Some("python".to_string()),
                         function: Some("foo".to_string()),
                         package: Some("foo".to_string()),
                         ..Default::default()
@@ -537,7 +541,7 @@ mod tests {
                     duration_ns: 10,
                     is_application: false,
                     frame: Frame {
-                        platform: Some(Platform::Python),
+                        platform: Some("python".to_string()),
                         function: Some("foo".to_string()),
                         package: Some("foo".to_string()),
                         ..Default::default()
@@ -567,7 +571,7 @@ mod tests {
                     duration_ns: 20,
                     is_application: true,
                     frame: Frame {
-                        platform: Some(Platform::Python),
+                        platform: Some("python".to_string()),
                         function: Some("foo".to_string()),
                         package: Some("foo".to_string()),
                         ..Default::default()
@@ -576,7 +580,7 @@ mod tests {
                         duration_ns: 10,
                         is_application: true,
                         frame: Frame {
-                            platform: Some(Platform::Python),
+                            platform: Some("python".to_string()),
                             function: Some("bar".to_string()),
                             package: Some("bar".to_string()),
                             ..Default::default()
@@ -623,7 +627,7 @@ mod tests {
                     duration_ns: 10,
                     is_application: true,
                     frame: Frame {
-                        platform: Some(Platform::Python),
+                        platform: Some("python".to_string()),
                         function: Some("main".to_string()),
                         package: Some("main".to_string()),
                         ..Default::default()
@@ -632,7 +636,7 @@ mod tests {
                         duration_ns: 10,
                         is_application: true,
                         frame: Frame {
-                            platform: Some(Platform::Python),
+                            platform: Some("python".to_string()),
                             function: Some("foo".to_string()),
                             package: Some("foo".to_string()),
                             ..Default::default()
@@ -641,7 +645,7 @@ mod tests {
                             duration_ns: 10,
                             is_application: false,
                             frame: Frame {
-                                platform: Some(Platform::Python),
+                                platform: Some("python".to_string()),
                                 function: Some("bar".to_string()),
                                 package: Some("bar".to_string()),
                                 ..Default::default()
@@ -650,7 +654,7 @@ mod tests {
                                 duration_ns: 10,
                                 is_application: false,
                                 frame: Frame {
-                                    platform: Some(Platform::Python),
+                                    platform: Some("python".to_string()),
                                     function: Some("baz".to_string()),
                                     package: Some("baz".to_string()),
                                     ..Default::default()
@@ -701,7 +705,7 @@ mod tests {
                     duration_ns: 40,
                     is_application: true,
                     frame: Frame {
-                        platform: Some(Platform::Python),
+                        platform: Some("python".to_string()),
                         function: Some("main".to_string()),
                         package: Some("main".to_string()),
                         ..Default::default()
@@ -711,7 +715,7 @@ mod tests {
                             duration_ns: 10,
                             is_application: true,
                             frame: Frame {
-                                platform: Some(Platform::Python),
+                                platform: Some("python".to_string()),
                                 function: Some("foo".to_string()),
                                 package: Some("foo".to_string()),
                                 ..Default::default()
@@ -720,7 +724,7 @@ mod tests {
                                 duration_ns: 10,
                                 is_application: false,
                                 frame: Frame {
-                                    platform: Some(Platform::Python),
+                                    platform: Some("python".to_string()),
                                     function: Some("bar".to_string()),
                                     package: Some("bar".to_string()),
                                     ..Default::default()
@@ -729,7 +733,7 @@ mod tests {
                                     duration_ns: 10,
                                     is_application: false,
                                     frame: Frame {
-                                        platform: Some(Platform::Python),
+                                        platform: Some("python".to_string()),
                                         function: Some("baz".to_string()),
                                         package: Some("baz".to_string()),
                                         ..Default::default()
@@ -744,7 +748,7 @@ mod tests {
                             duration_ns: 10,
                             is_application: false,
                             frame: Frame {
-                                platform: Some(Platform::Python),
+                                platform: Some("python".to_string()),
                                 function: Some("qux".to_string()),
                                 package: Some("qux".to_string()),
                                 ..Default::default()
@@ -755,7 +759,7 @@ mod tests {
                             duration_ns: 20,
                             is_application: true,
                             frame: Frame {
-                                platform: Some(Platform::Python),
+                                platform: Some("python".to_string()),
                                 function: Some("foo".to_string()),
                                 package: Some("foo".to_string()),
                                 ..Default::default()
@@ -764,7 +768,7 @@ mod tests {
                                 duration_ns: 20,
                                 is_application: false,
                                 frame: Frame {
-                                    platform: Some(Platform::Python),
+                                    platform: Some("python".to_string()),
                                     function: Some("bar".to_string()),
                                     package: Some("bar".to_string()),
                                     ..Default::default()
@@ -773,7 +777,7 @@ mod tests {
                                     duration_ns: 20,
                                     is_application: false,
                                     frame: Frame {
-                                        platform: Some(Platform::Python),
+                                        platform: Some("python".to_string()),
                                         function: Some("baz".to_string()),
                                         package: Some("baz".to_string()),
                                         ..Default::default()
@@ -851,7 +855,7 @@ mod tests {
                     duration_ns: 20,
                     is_application: true,
                     frame: Frame {
-                        platform: Some(Platform::Android),
+                        platform: Some("android".to_string()),
                         function: Some("a.B()".to_string()),
                         package: Some("a".to_string()),
                         data: Some(Data {
@@ -865,7 +869,7 @@ mod tests {
                             duration_ns: 10,
                             is_application: true,
                             frame: Frame {
-                                platform: Some(Platform::Android),
+                                platform: Some("android".to_string()),
                                 function: Some("com.example.Thing.doStuff()".to_string()),
                                 package: Some("com.example".to_string()),
                                 data: Some(Data {
@@ -880,7 +884,7 @@ mod tests {
                             duration_ns: 10,
                             is_application: true,
                             frame: Frame {
-                                platform: Some(Platform::Android),
+                                platform: Some("android".to_string()),
                                 function: Some("com.example.Thing.a()".to_string()),
                                 package: Some("com.example".to_string()),
                                 data: Some(Data {
@@ -917,7 +921,7 @@ mod tests {
                     duration_ns: 20,
                     is_application: true,
                     frame: Frame {
-                        platform: Some(Platform::Java),
+                        platform: Some("java".to_string()),
                         function: Some("a.B()".to_string()),
                         package: Some("a".to_string()),
                         ..Default::default()
@@ -926,7 +930,7 @@ mod tests {
                         duration_ns: 10,
                         is_application: true,
                         frame: Frame {
-                            platform: Some(Platform::Java),
+                            platform: Some("java".to_string()),
                             function: Some("com.example.Thing.doStuff()".to_string()),
                             package: Some("com.example".to_string()),
                             ..Default::default()
@@ -958,7 +962,7 @@ mod tests {
                     duration_ns: 10,
                     is_application: true,
                     frame: Frame {
-                        platform: Some(Platform::Cocoa),
+                        platform: Some("cocoa".to_string()),
                         function: Some("main".to_string()),
                         package: Some("iOS-Swift".to_string()),
                         ..Default::default()

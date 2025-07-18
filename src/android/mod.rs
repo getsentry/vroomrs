@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::frame::{self, Frame};
 use crate::nodetree;
 use crate::types::{CallTreeError, CallTreesU64};
-use crate::{nodetree::Node, types::Platform, MAX_STACK_DEPTH};
+use crate::{nodetree::Node, MAX_STACK_DEPTH};
 
 const MAIN_THREAD: &str = "main";
 const ANDROID_PACKAGE_PREFIXES: [&str; 11] = [
@@ -68,7 +68,7 @@ struct AndroidMethod {
     #[serde(skip_serializing_if = "Option::is_none")]
     in_app: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    platform: Option<Platform>,
+    platform: Option<String>,
 }
 
 impl AndroidMethod {
@@ -140,7 +140,7 @@ impl AndroidMethod {
             } else {
                 Some(self.source_file.to_owned())
             },
-            platform: self.platform,
+            platform: self.platform.clone(),
             ..Default::default()
         }
     }

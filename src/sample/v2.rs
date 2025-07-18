@@ -11,7 +11,7 @@ use super::{SampleError, ThreadMetadata};
 use crate::frame::Frame;
 use crate::nodetree::Node;
 use crate::types::{CallTreeError, CallTreesStr, ChunkInterface};
-use crate::types::{ClientSDK, DebugMeta, Platform};
+use crate::types::{ClientSDK, DebugMeta};
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct SampleChunk {
@@ -26,7 +26,7 @@ pub struct SampleChunk {
 
     pub environment: Option<String>,
 
-    pub platform: Platform,
+    pub platform: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub release: Option<String>,
@@ -212,9 +212,9 @@ impl ChunkInterface for SampleChunk {
 
     fn normalize(&mut self) {
         for frame in &mut self.profile.frames {
-            frame.normalize(self.platform);
+            frame.normalize(&self.platform);
         }
-        if matches!(self.platform, Platform::Python) {
+        if self.platform.as_str() == "python" {
             self.profile.trim_python_stacks();
         }
     }
@@ -231,8 +231,8 @@ impl ChunkInterface for SampleChunk {
         self.organization_id
     }
 
-    fn get_platform(&self) -> Platform {
-        self.platform
+    fn get_platform(&self) -> String {
+        self.platform.clone()
     }
 
     fn get_profiler_id(&self) -> &str {
@@ -310,7 +310,7 @@ mod tests {
     use crate::{
         frame::Frame,
         sample::v2::{Sample, SampleData},
-        types::{CallTreesStr, ChunkInterface, Platform},
+        types::{CallTreesStr, ChunkInterface},
     };
 
     use pretty_assertions::assert_eq;
@@ -603,7 +603,7 @@ mod tests {
             TestStruct {
                 name: "Remove module frame at the end of a stack".to_string(),
                 chunk: SampleChunk {
-                    platform: Platform::Python,
+                    platform: "python".to_string(),
                     profile: SampleData {
                         frames: vec![
                             Frame {
@@ -613,7 +613,7 @@ mod tests {
                                 line: Some(11),
                                 function: Some("<module>".to_string()),
                                 path: Some("/usr/src/app/<string>".to_string()),
-                                platform: Some(Platform::Python),
+                                platform: Some("python".to_string()),
                                 ..Default::default()
                             },
                             Frame {
@@ -623,7 +623,7 @@ mod tests {
                                 line: Some(98),
                                 function: Some("foobar".to_string()),
                                 path: Some("/usr/src/app/util.py".to_string()),
-                                platform: Some(Platform::Python),
+                                platform: Some("python".to_string()),
                                 ..Default::default()
                             },
                         ],
@@ -633,7 +633,7 @@ mod tests {
                     ..Default::default()
                 },
                 want: SampleChunk {
-                    platform: Platform::Python,
+                    platform: "python".to_string(),
                     profile: SampleData {
                         frames: vec![
                             Frame {
@@ -643,7 +643,7 @@ mod tests {
                                 line: Some(11),
                                 function: Some("<module>".to_string()),
                                 path: Some("/usr/src/app/<string>".to_string()),
-                                platform: Some(Platform::Python),
+                                platform: Some("python".to_string()),
                                 ..Default::default()
                             },
                             Frame {
@@ -653,7 +653,7 @@ mod tests {
                                 line: Some(98),
                                 function: Some("foobar".to_string()),
                                 path: Some("/usr/src/app/util.py".to_string()),
-                                platform: Some(Platform::Python),
+                                platform: Some("python".to_string()),
                                 ..Default::default()
                             },
                         ],

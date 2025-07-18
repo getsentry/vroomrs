@@ -7,8 +7,7 @@ use crate::{
     android::AndroidError,
     sample::v1::{Measurement, Profile, RuntimeMetadata, SampleProfile},
     types::{
-        CallTreeError, ClientSDK, DebugMeta, Platform, ProfileInterface, Transaction,
-        TransactionMetadata,
+        CallTreeError, ClientSDK, DebugMeta, ProfileInterface, Transaction, TransactionMetadata,
     },
 };
 
@@ -60,7 +59,7 @@ pub struct AndroidProfile {
 
     organization_id: u64,
 
-    platform: Platform,
+    platform: String,
 
     profile: Android,
 
@@ -105,8 +104,8 @@ pub struct NestedProfile {
 }
 
 impl ProfileInterface for AndroidProfile {
-    fn get_platform(&self) -> Platform {
-        self.platform
+    fn get_platform(&self) -> String {
+        self.platform.clone()
     }
 
     /// Serialize the given data structure as a JSON byte vector.
@@ -155,7 +154,7 @@ impl ProfileInterface for AndroidProfile {
             let mut js_profile: NestedProfile = serde_json::from_value(js_profile_json.clone())
                 .expect("error while deserializing js_profile");
             let mut sample_profile = SampleProfile {
-                platform: Platform::JavaScript,
+                platform: "javascript".to_string(),
                 profile: js_profile.profile,
                 ..Default::default()
             };
@@ -195,7 +194,7 @@ impl ProfileInterface for AndroidProfile {
             let js_profile: NestedProfile = serde_json::from_value(js_profile_json.clone())
                 .expect("error while deserializing js_profile");
             let mut sample_profile = SampleProfile {
-                platform: Platform::JavaScript,
+                platform: "javascript".to_string(),
                 profile: js_profile.profile,
                 ..Default::default()
             };
