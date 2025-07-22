@@ -75,7 +75,7 @@ pub struct AndroidProfile {
 
     sampled: bool,
 
-    timestamp: DateTime<Utc>,
+    timestamp: Option<DateTime<Utc>>,
 
     trace_id: String,
 
@@ -147,6 +147,7 @@ impl ProfileInterface for AndroidProfile {
 
     fn get_timestamp(&self) -> DateTime<Utc> {
         self.timestamp
+            .unwrap_or(DateTime::from_timestamp(self.received, 0).unwrap())
     }
 
     fn normalize(&mut self) {
@@ -301,7 +302,7 @@ impl ProfileInterface for AndroidProfile {
             project_id: self.project_id.to_string(),
             sdk_name: self.client_sdk.as_ref().map(|sdk| sdk.name.clone()),
             sdk_version: self.client_sdk.as_ref().map(|sdk| sdk.version.clone()),
-            timestamp: self.timestamp.timestamp(),
+            timestamp: self.get_timestamp().timestamp(),
             trace_duration_ms: self.duration_ns as f64 / 1_000_000.0,
             transaction_id: self.transaction_id.clone(),
             transaction_name: self.transaction_name.clone(),
