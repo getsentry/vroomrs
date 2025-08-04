@@ -1,6 +1,6 @@
 mod python_std_lib;
 
-use std::{collections::HashSet, hash::Hasher};
+use std::hash::Hasher;
 
 use fnv_rs::Fnv64;
 use once_cell::sync::Lazy;
@@ -12,7 +12,6 @@ static PACKAGE_EXTENSION_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"\.(dylib|so|a|dll|exe)$").unwrap());
 static JS_SYSTEM_PACKAGE_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"node_modules|^(@moz-extension|chrome-extension)").unwrap());
-static COCOA_SYSTEM_PACKAGE: Lazy<HashSet<&'static str>> = Lazy::new(|| HashSet::from(["hermes"]));
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct Frame {
@@ -169,12 +168,6 @@ impl Frame {
         if is_main {
             // the main frame is found in the user package but should be treated
             // as a system frame as it does not contain any user code
-            return false;
-        }
-
-        // Some packages are known to be system packages.
-        // If we detect them, mark them as a system frame immediately.
-        if COCOA_SYSTEM_PACKAGE.contains(self.module_or_package().as_str()) {
             return false;
         }
 
