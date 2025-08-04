@@ -12,8 +12,7 @@ static PACKAGE_EXTENSION_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"\.(dylib|so|a|dll|exe)$").unwrap());
 static JS_SYSTEM_PACKAGE_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"node_modules|^(@moz-extension|chrome-extension)").unwrap());
-static COCOA_SYSTEM_PACKAGE: Lazy<HashSet<&'static str>> =
-    Lazy::new(|| HashSet::from(["Sentry", "hermes"]));
+static COCOA_SYSTEM_PACKAGE: Lazy<HashSet<&'static str>> = Lazy::new(|| HashSet::from(["hermes"]));
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 pub struct Frame {
@@ -396,7 +395,7 @@ mod tests {
                     package: Some("/private/var/containers/Bundle/Application/00000000-0000-0000-0000-000000000000/App.app/Frameworks/Sentry.framework/Sentry".to_string()),
                     ..Default::default()
                 },
-                is_application: false,
+                is_application: true,
             }
         ];
 
