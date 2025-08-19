@@ -984,4 +984,82 @@ mod tests {
             assert_eq!(results, test.want, "test `{}` failed", test.name);
         }
     }
+
+    #[test]
+    fn test_node_collect_non_leaf_functions() {
+        struct TestStruct {
+            name: String,
+            node: Node,
+            want: HashMap<u32, CallTreeFunction>,
+        }
+
+        const FINGERPRINT_FOO: u32 = 2655321105;
+        const FINGERPRINT_BAR: u32 = 1766712469;
+
+        let test_cases: Vec<TestStruct> = vec![
+            TestStruct {
+                name: "single application node".to_string(),
+                node: Node {
+                    duration_ns: 10,
+                    is_application: true,
+                    frame: Frame {
+                        platform: Some("python".to_string()),
+                        function: Some("foo".to_string()),
+                        package: Some("foo".to_string()),
+                        ..Default::default()
+                    },
+                    children: vec![Rc::new(RefCell::new(Node {
+                        duration_ns: 10,
+                        is_application: true,
+                        frame: Frame {
+                            platform: Some("python".to_string()),
+                            function: Some("bar".to_string()),
+                            package: Some("bar".to_string()),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }))],
+                    ..Default::default()
+                },
+                want: [
+                    (
+                        FINGERPRINT_FOO,
+                        CallTreeFunction {
+                            fingerprint: FINGERPRINT_FOO,
+                            in_app: true,
+                            function: "foo".to_string(),
+                            package: "foo".to_string(),
+                            self_times_ns: vec![0],
+                            sum_self_time_ns: 0,
+                            max_duration: 0,
+                            ..Default::default()
+                        },
+                    ),
+                    (
+                        FINGERPRINT_BAR,
+                        CallTreeFunction {
+                            fingerprint: FINGERPRINT_BAR,
+                            in_app: true,
+                            function: "bar".to_string(),
+                            package: "bar".to_string(),
+                            self_times_ns: vec![10],
+                            sum_self_time_ns: 10,
+                            max_duration: 10,
+                            ..Default::default()
+                        },
+                    ),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
+            }, // end first test case
+        ];
+
+        for test in &test_cases {
+            let mut results: HashMap<u32, CallTreeFunction> = HashMap::new();
+            test.node.collect_functions(&mut results, "", 0, 0, false);
+
+            assert_eq!(results, test.want, "test `{}` failed", test.name);
+        }
+    }
 }
