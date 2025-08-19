@@ -96,7 +96,7 @@ impl ChunkInterface for SampleChunk {
     fn call_trees(
         &mut self,
         active_thread_id: Option<&str>,
-    ) -> Result<CallTreesStr, CallTreeError> {
+    ) -> Result<CallTreesStr<'_>, CallTreeError> {
         // Sort samples by timestamp
         self.profile
             .samples
