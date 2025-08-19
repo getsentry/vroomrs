@@ -126,16 +126,20 @@ impl Node {
         thread_id: &str,
         node_depth: u16,
         min_depth: u16,
+        filter_non_leaf_functions: bool,
     ) -> (u64, u64) {
         let mut children_application_duration_ns: u64 = 0;
         let mut children_system_duration_ns: u64 = 0;
 
         // determine the amount of time spent in application vs system functions in the children
         for child in &self.children {
-            let (application_duration_ns, system_duration_ns) =
-                child
-                    .borrow()
-                    .collect_functions(results, thread_id, node_depth + 1, min_depth);
+            let (application_duration_ns, system_duration_ns) = child.borrow().collect_functions(
+                results,
+                thread_id,
+                node_depth + 1,
+                min_depth,
+                filter_non_leaf_functions,
+            );
             children_application_duration_ns += application_duration_ns;
             children_system_duration_ns += system_duration_ns;
         }
@@ -173,7 +177,7 @@ impl Node {
                 }
             }
 
-            if self_time_ns > 0 {
+            if self_time_ns > 0 || !filter_non_leaf_functions {
                 // casting to an uint32 here because snuba does not handle uint64 values
                 // well as it is converted to a float somewhere
                 // not changing to the 32 bit hash function here to preserve backwards
@@ -975,7 +979,7 @@ mod tests {
 
         for test in &test_cases {
             let mut results: HashMap<u32, CallTreeFunction> = HashMap::new();
-            test.node.collect_functions(&mut results, "", 0, 0);
+            test.node.collect_functions(&mut results, "", 0, 0, true);
 
             assert_eq!(results, test.want, "test `{}` failed", test.name);
         }
