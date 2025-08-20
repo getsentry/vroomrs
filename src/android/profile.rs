@@ -240,7 +240,7 @@ impl ProfileInterface for AndroidProfile {
         self.duration_ns
     }
 
-    fn get_transaction(&self) -> Cow<Transaction> {
+    fn get_transaction(&self) -> Cow<'_, Transaction> {
         Cow::Owned(Transaction {
             active_thread_id: self.profile.active_thread_id(),
             duration_ns: Some(self.duration_ns),

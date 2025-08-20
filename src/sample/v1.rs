@@ -229,7 +229,7 @@ impl Profile {
         (-1, -1)
     }
 
-    fn frames_list(&self, stack_id: usize) -> Vec<FrameTuple> {
+    fn frames_list(&self, stack_id: usize) -> Vec<FrameTuple<'_>> {
         let stack = &self.stacks[stack_id];
         let mut frames: Vec<(usize, &Frame)> = Vec::with_capacity(stack.len());
         for frame_id in stack {
@@ -533,7 +533,7 @@ impl ProfileInterface for SampleProfile {
             - self.profile.samples.first().unwrap().elapsed_since_start_ns
     }
 
-    fn get_transaction(&self) -> Cow<Transaction> {
+    fn get_transaction(&self) -> Cow<'_, Transaction> {
         Cow::Borrowed(&self.transaction)
     }
 

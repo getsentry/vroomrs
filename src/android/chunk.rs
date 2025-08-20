@@ -40,7 +40,7 @@ impl ChunkInterface for AndroidChunk {
     fn call_trees(
         &mut self,
         _active_thread_id: Option<&str>,
-    ) -> Result<CallTreesStr, CallTreeError> {
+    ) -> Result<CallTreesStr<'_>, CallTreeError> {
         self.profile.sdk_start_time = Some(self.timestamp.mul(1e9) as u64);
         let call_trees = self.profile.call_trees()?;
 
