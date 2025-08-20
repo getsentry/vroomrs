@@ -113,8 +113,10 @@ pub trait ChunkInterface {
     fn get_received(&self) -> f64;
     fn get_release(&self) -> Option<&str>;
     fn get_retention_days(&self) -> i32;
-    fn call_trees(&mut self, active_thread_id: Option<&str>)
-        -> Result<CallTreesStr, CallTreeError>;
+    fn call_trees(
+        &mut self,
+        active_thread_id: Option<&str>,
+    ) -> Result<CallTreesStr<'_>, CallTreeError>;
 
     fn duration_ms(&self) -> u64;
     fn end_timestamp(&self) -> f64;
@@ -251,7 +253,7 @@ pub trait ProfileInterface {
     fn sdk_name(&self) -> Option<&str>;
     fn sdk_version(&self) -> Option<&str>;
     fn duration_ns(&self) -> u64;
-    fn get_transaction(&self) -> Cow<Transaction>;
+    fn get_transaction(&self) -> Cow<'_, Transaction>;
     fn get_transaction_tags(&self) -> &HashMap<String, String>;
     fn get_debug_meta(&self) -> &DebugMeta;
     fn get_measurements(&self) -> Option<&HashMap<String, Measurement>>;
