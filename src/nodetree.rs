@@ -102,8 +102,9 @@ impl Node {
         }
     }
 
-    // `collect_functions` walks the node tree, collects any function with a non zero
-    // self-time and writes them into the `results` parameter.
+    // `collect_functions` walks the node tree and writes functions into the `results` parameter.
+    // When `filter_non_leaf_functions` is true, only functions with non-zero self-time are collected.
+    // When `filter_non_leaf_functions` is false, all functions are collected regardless of self-time.
     //
     // The meaning of self-time is slightly modified here to adapt better for our use case.
     //
@@ -126,16 +127,20 @@ impl Node {
         thread_id: &str,
         node_depth: u16,
         min_depth: u16,
+        filter_non_leaf_functions: bool,
     ) -> (u64, u64) {
         let mut children_application_duration_ns: u64 = 0;
         let mut children_system_duration_ns: u64 = 0;
 
         // determine the amount of time spent in application vs system functions in the children
         for child in &self.children {
-            let (application_duration_ns, system_duration_ns) =
-                child
-                    .borrow()
-                    .collect_functions(results, thread_id, node_depth + 1, min_depth);
+            let (application_duration_ns, system_duration_ns) = child.borrow().collect_functions(
+                results,
+                thread_id,
+                node_depth + 1,
+                min_depth,
+                filter_non_leaf_functions,
+            );
             children_application_duration_ns += application_duration_ns;
             children_system_duration_ns += system_duration_ns;
         }
@@ -173,7 +178,7 @@ impl Node {
                 }
             }
 
-            if self_time_ns > 0 {
+            if self_time_ns > 0 || !filter_non_leaf_functions {
                 // casting to an uint32 here because snuba does not handle uint64 values
                 // well as it is converted to a float somewhere
                 // not changing to the 32 bit hash function here to preserve backwards
@@ -975,7 +980,85 @@ mod tests {
 
         for test in &test_cases {
             let mut results: HashMap<u32, CallTreeFunction> = HashMap::new();
-            test.node.collect_functions(&mut results, "", 0, 0);
+            test.node.collect_functions(&mut results, "", 0, 0, true);
+
+            assert_eq!(results, test.want, "test `{}` failed", test.name);
+        }
+    }
+
+    #[test]
+    fn test_node_collect_non_leaf_functions() {
+        struct TestStruct {
+            name: String,
+            node: Node,
+            want: HashMap<u32, CallTreeFunction>,
+        }
+
+        const FINGERPRINT_FOO: u32 = 2655321105;
+        const FINGERPRINT_BAR: u32 = 1766712469;
+
+        let test_cases: Vec<TestStruct> = vec![
+            TestStruct {
+                name: "single application node".to_string(),
+                node: Node {
+                    duration_ns: 10,
+                    is_application: true,
+                    frame: Frame {
+                        platform: Some("python".to_string()),
+                        function: Some("foo".to_string()),
+                        package: Some("foo".to_string()),
+                        ..Default::default()
+                    },
+                    children: vec![Rc::new(RefCell::new(Node {
+                        duration_ns: 10,
+                        is_application: true,
+                        frame: Frame {
+                            platform: Some("python".to_string()),
+                            function: Some("bar".to_string()),
+                            package: Some("bar".to_string()),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    }))],
+                    ..Default::default()
+                },
+                want: [
+                    (
+                        FINGERPRINT_FOO,
+                        CallTreeFunction {
+                            fingerprint: FINGERPRINT_FOO,
+                            in_app: true,
+                            function: "foo".to_string(),
+                            package: "foo".to_string(),
+                            self_times_ns: vec![0],
+                            sum_self_time_ns: 0,
+                            max_duration: 0,
+                            ..Default::default()
+                        },
+                    ),
+                    (
+                        FINGERPRINT_BAR,
+                        CallTreeFunction {
+                            fingerprint: FINGERPRINT_BAR,
+                            in_app: true,
+                            function: "bar".to_string(),
+                            package: "bar".to_string(),
+                            self_times_ns: vec![10],
+                            sum_self_time_ns: 10,
+                            max_duration: 10,
+                            ..Default::default()
+                        },
+                    ),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
+            }, // end first test case
+        ];
+
+        for test in &test_cases {
+            let mut results: HashMap<u32, CallTreeFunction> = HashMap::new();
+            test.node.collect_functions(&mut results, "", 0, 0, false);
 
             assert_eq!(results, test.want, "test `{}` failed", test.name);
         }

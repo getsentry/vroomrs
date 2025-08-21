@@ -191,7 +191,7 @@ class Profile:
         """
         ...
     
-    def extract_functions_metrics(self, min_depth: int, filter_system_frames: bool, max_unique_functions: Optional[int] = None) -> List["CallTreeFunction"]:
+    def extract_functions_metrics(self, min_depth: int, filter_system_frames: bool, max_unique_functions: Optional[int] = None, filter_non_leaf_functions: bool = True) -> List["CallTreeFunction"]:
         """
         Extracts function metrics from the profile.
 
@@ -206,6 +206,9 @@ class Profile:
             max_unique_functions (int, optional): An optional maximum number of unique functions to extract.
                 If provided, only the top `max_unique_functions` slowest functions will be returned.
                 If `None`, all functions will be returned.
+            filter_non_leaf_functions (bool, optional): If `True`, functions with zero self-time (non-leaf functions) will be filtered out.
+                If `False`, all functions including non-leaf functions with zero self-time will be included.
+                Defaults to `True`.
 
         Returns:
             list[CallTreeFunction]: A list of CallTreeFunction objects, each containing metrics for a function in the call tree.
@@ -214,7 +217,7 @@ class Profile:
             Exception: If an error occurs during the extraction process.
 
         Example:
-            >>> metrics = profile.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10)
+            >>> metrics = profile.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10, filter_non_leaf_functions=False)
             >>> for function_metric in metrics:
             ...     do_something(function_metric)
         """
@@ -423,7 +426,7 @@ class ProfileChunk:
         """
         ...
     
-    def extract_functions_metrics(self, min_depth: int, filter_system_frames: bool, max_unique_functions: Optional[int] = None) -> List["CallTreeFunction"]:
+    def extract_functions_metrics(self, min_depth: int, filter_system_frames: bool, max_unique_functions: Optional[int] = None, filter_non_leaf_functions: bool = True) -> List["CallTreeFunction"]:
         """
         Extracts function metrics from the profile chunk.
 
@@ -438,6 +441,9 @@ class ProfileChunk:
             max_unique_functions (int, optional): An optional maximum number of unique functions to extract.
                 If provided, only the top `max_unique_functions` slowest functions will be returned.
                 If `None`, all functions will be returned.
+            filter_non_leaf_functions (bool, optional): If `True`, functions with zero self-time (non-leaf functions) will be filtered out.
+                If `False`, all functions including non-leaf functions with zero self-time will be included.
+                Defaults to `True`.
 
         Returns:
             list[CallTreeFunction]: A list of CallTreeFunction objects, each containing metrics for a function in the call tree.
@@ -446,7 +452,7 @@ class ProfileChunk:
             Exception: If an error occurs during the extraction process.
 
         Example:
-            >>> metrics = profile_chunk.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10)
+            >>> metrics = profile_chunk.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10, filter_non_leaf_functions=False)
             >>> for function_metric in metrics:
             ...     do_something(function_metric)
         """

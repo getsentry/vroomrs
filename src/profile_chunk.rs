@@ -256,6 +256,9 @@ impl ProfileChunk {
     ///     max_unique_functions (int): An optional maximum number of unique functions to extract.
     ///         If provided, only the top `max_unique_functions` slowest functions will be returned.
     ///         If `None`, all functions will be returned.
+    ///     filter_non_leaf_functions (bool): If `True`, functions with zero self-time (non-leaf functions) will be filtered out.
+    ///         If `False`, all functions including non-leaf functions with zero self-time will be included.
+    ///         Defaults to `True`.
     ///
     /// Returns:
     ///     list[:class:`CallTreeFunction`]
@@ -265,24 +268,29 @@ impl ProfileChunk {
     ///     pyo3.exceptions.PyException: If an error occurs during the extraction process.
     ///
     /// Example:
-    ///     >>> metrics = profile_chunk.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10)
+    ///     >>> metrics = profile_chunk.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10, filter_non_leaf_functions=False)
     ///     >>> for function_metric in metrics:
     ///     ...     do_something(function_metric)
-    #[pyo3(signature = (min_depth, filter_system_frames, max_unique_functions=None))]
+    #[pyo3(signature = (min_depth, filter_system_frames, max_unique_functions=None, filter_non_leaf_functions=true))]
     pub fn extract_functions_metrics(
         &mut self,
         min_depth: u16,
         filter_system_frames: bool,
         max_unique_functions: Option<usize>,
+        filter_non_leaf_functions: bool,
     ) -> PyResult<Vec<CallTreeFunction>> {
         let call_trees: CallTreesStr = self.profile.call_trees(None)?;
         let mut functions: HashMap<u32, CallTreeFunction> = HashMap::new();
 
         for (tid, call_trees_for_thread) in &call_trees {
             for call_tree in call_trees_for_thread {
-                call_tree
-                    .borrow_mut()
-                    .collect_functions(&mut functions, tid, 0, min_depth);
+                call_tree.borrow_mut().collect_functions(
+                    &mut functions,
+                    tid,
+                    0,
+                    min_depth,
+                    filter_non_leaf_functions,
+                );
             }
         }
 
