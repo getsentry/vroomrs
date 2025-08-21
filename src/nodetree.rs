@@ -102,8 +102,9 @@ impl Node {
         }
     }
 
-    // `collect_functions` walks the node tree, collects any function with a non zero
-    // self-time and writes them into the `results` parameter.
+    // `collect_functions` walks the node tree and writes functions into the `results` parameter.
+    // When `filter_non_leaf_functions` is true, only functions with non-zero self-time are collected.
+    // When `filter_non_leaf_functions` is false, all functions are collected regardless of self-time.
     //
     // The meaning of self-time is slightly modified here to adapt better for our use case.
     //
