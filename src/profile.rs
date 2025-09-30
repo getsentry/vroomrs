@@ -291,13 +291,14 @@ impl Profile {
     ///     >>> metrics = profile.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10, filter_non_leaf_functions=False)
     ///     >>> for function_metric in metrics:
     ///     ...     do_something(function_metric)
-    #[pyo3(signature = (min_depth, filter_system_frames, max_unique_functions=None, filter_non_leaf_functions=true))]
+    #[pyo3(signature = (min_depth, filter_system_frames, max_unique_functions=None, filter_non_leaf_functions=true, generate_stack_fingerprints=false))]
     pub fn extract_functions_metrics(
         &mut self,
         min_depth: u16,
         filter_system_frames: bool,
         max_unique_functions: Option<usize>,
         filter_non_leaf_functions: bool,
+        generate_stack_fingerprints: bool,
     ) -> PyResult<Vec<CallTreeFunction>> {
         let call_trees: CallTreesU64 = self.profile.call_trees()?;
         let mut functions: HashMap<u32, CallTreeFunction> = HashMap::new();
@@ -309,7 +310,10 @@ impl Profile {
                     tid.to_string().as_ref(),
                     0,
                     min_depth,
+                    filter_system_frames,
                     filter_non_leaf_functions,
+                    generate_stack_fingerprints,
+                    None,
                 );
             }
         }
