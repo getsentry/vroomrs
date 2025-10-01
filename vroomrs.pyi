@@ -191,7 +191,7 @@ class Profile:
         """
         ...
     
-    def extract_functions_metrics(self, min_depth: int, filter_system_frames: bool, max_unique_functions: Optional[int] = None, filter_non_leaf_functions: bool = True) -> List["CallTreeFunction"]:
+    def extract_functions_metrics(self, min_depth: int, filter_system_frames: bool, max_unique_functions: Optional[int] = None, filter_non_leaf_functions: bool = True, generate_stack_fingerprints: bool = False) -> List["CallTreeFunction"]:
         """
         Extracts function metrics from the profile.
 
@@ -209,6 +209,9 @@ class Profile:
             filter_non_leaf_functions (bool, optional): If `True`, functions with zero self-time (non-leaf functions) will be filtered out.
                 If `False`, all functions including non-leaf functions with zero self-time will be included.
                 Defaults to `True`.
+            generate_stack_fingerprints (bool): If `True`, the fingerprint of the stack up to the current function and the parent function's fingerprint will be generated.
+                If `False`, only the fingerprint of the current function will be generated.
+                Defaults to `False`.
 
         Returns:
             list[CallTreeFunction]: A list of CallTreeFunction objects, each containing metrics for a function in the call tree.
@@ -426,7 +429,7 @@ class ProfileChunk:
         """
         ...
     
-    def extract_functions_metrics(self, min_depth: int, filter_system_frames: bool, max_unique_functions: Optional[int] = None, filter_non_leaf_functions: bool = True) -> List["CallTreeFunction"]:
+    def extract_functions_metrics(self, min_depth: int, filter_system_frames: bool, max_unique_functions: Optional[int] = None, filter_non_leaf_functions: bool = True, generate_stack_fingerprints: bool = False) -> List["CallTreeFunction"]:
         """
         Extracts function metrics from the profile chunk.
 
@@ -444,6 +447,9 @@ class ProfileChunk:
             filter_non_leaf_functions (bool, optional): If `True`, functions with zero self-time (non-leaf functions) will be filtered out.
                 If `False`, all functions including non-leaf functions with zero self-time will be included.
                 Defaults to `True`.
+            generate_stack_fingerprints (bool): If `True`, the fingerprint of the stack up to the current function and the parent function's fingerprint will be generated.
+                If `False`, only the fingerprint of the current function will be generated.
+                Defaults to `False`.
 
         Returns:
             list[CallTreeFunction]: A list of CallTreeFunction objects, each containing metrics for a function in the call tree.
