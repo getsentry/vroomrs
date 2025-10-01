@@ -269,9 +269,24 @@ impl CallTreeFunction {
     ///
     /// Returns:
     ///     int
-    ///         The function fingerprint.
+    ///         If generate_stack_fingerprints is enabled, the fingerprint is the fingerprint of the
+    ///         stack up to the current function.
+    ///         If generate_stack_fingerprints is disabled, the fingerprint is the fingerprint of the
+    ///         function.
     pub fn get_fingerprint(&self) -> u32 {
         self.fingerprint
+    }
+
+    /// Returns the parent's function fingerprint.
+    ///
+    /// Returns:
+    ///     int
+    ///         If generate_stack_fingerprints is enabled, the parent fingerprint is the fingerprint of the
+    ///         stack up to the parent function otherwise it'll be just None.
+    ///         If filter_system_frames is enabled, the parent fingerprint is the fingerprint of the
+    ///         closest application frame.
+    pub fn get_parent_fingerprint(&self) -> Option<u32> {
+        self.parent_fingerprint
     }
 
     /// Returns the function name.
@@ -317,6 +332,15 @@ impl CallTreeFunction {
     ///         The sum of self times in nanoseconds.
     pub fn get_sum_self_time_ns(&self) -> u64 {
         self.sum_self_time_ns
+    }
+
+    /// Returns the total times in nanoseconds.
+    ///
+    /// Returns:
+    ///     list[int]
+    ///         The total times in nanoseconds.
+    pub fn get_total_times_ns(&self) -> Vec<u64> {
+        self.total_times_ns.clone()
     }
 
     /// Returns the sample count.

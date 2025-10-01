@@ -467,7 +467,22 @@ class CallTreeFunction:
         Returns the function fingerprint.
 
         Returns:
-            int: The function fingerprint.
+            int: If generate_stack_fingerprints is enabled, the fingerprint is the fingerprint of the
+                stack up to the current function.
+                If generate_stack_fingerprints is disabled, the fingerprint is the fingerprint of the
+                function.
+        """
+        ...
+    
+    def get_parent_fingerprint(self) -> Optional[int]:
+        """
+        Returns the parent's function fingerprint.
+
+        Returns:
+            int: If generate_stack_fingerprints is enabled, the parent fingerprint is the fingerprint of the
+                stack up to the parent function otherwise it'll be None.
+                If filter_system_frames is enabled, the parent fingerprint is the fingerprint of the
+                closest application frame.
         """
         ...
     
@@ -540,6 +555,15 @@ class CallTreeFunction:
 
         Returns:
             int: The maximum duration in nanoseconds.
+        """
+        ...
+    
+    def get_total_times_ns(self) -> List[int]:
+        """
+        Returns the total times in nanoseconds.
+
+        Returns:
+            list[int]: The total times in nanoseconds.
         """
         ...
 
