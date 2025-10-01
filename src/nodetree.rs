@@ -208,6 +208,7 @@ impl Node {
                     .and_modify(|function| {
                         function.self_times_ns.push(self_time_ns);
                         function.sum_self_time_ns += self_time_ns;
+                        function.total_times_ns.push(self.duration_ns);
                         function.sample_count += self.sample_count;
                         if self_time_ns > function.max_duration {
                             function.max_duration = self_time_ns;
@@ -229,6 +230,7 @@ impl Node {
                         in_app: self.is_application,
                         self_times_ns: vec![self_time_ns],
                         sum_self_time_ns: self_time_ns,
+                        total_times_ns: vec![self.duration_ns],
                         sample_count: self.sample_count,
                         thread_id: thread_id.to_string(),
                         max_duration: self_time_ns,
@@ -254,6 +256,7 @@ pub struct CallTreeFunction {
     pub package: String,
     pub in_app: bool,
     pub self_times_ns: Vec<u64>,
+    pub total_times_ns: Vec<u64>,
     pub sum_self_time_ns: u64,
     pub sample_count: u64,
     pub thread_id: String,
@@ -552,6 +555,7 @@ mod tests {
                         package: "foo".to_string(),
                         self_times_ns: vec![10],
                         sum_self_time_ns: 10,
+                        total_times_ns: vec![10],
                         max_duration: 10,
                         ..Default::default()
                     },
@@ -582,6 +586,7 @@ mod tests {
                         package: "foo".to_string(),
                         self_times_ns: vec![10],
                         sum_self_time_ns: 10,
+                        total_times_ns: vec![10],
                         max_duration: 10,
                         ..Default::default()
                     },
@@ -624,6 +629,7 @@ mod tests {
                             package: "foo".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![20],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -637,6 +643,7 @@ mod tests {
                             package: "bar".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -702,6 +709,7 @@ mod tests {
                             package: "foo".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -715,6 +723,7 @@ mod tests {
                             package: "baz".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -826,6 +835,7 @@ mod tests {
                             package: "foo".to_string(),
                             self_times_ns: vec![10, 20],
                             sum_self_time_ns: 30,
+                            total_times_ns: vec![10, 20],
                             max_duration: 20,
                             ..Default::default()
                         },
@@ -839,6 +849,7 @@ mod tests {
                             package: "baz".to_string(),
                             self_times_ns: vec![10, 20],
                             sum_self_time_ns: 30,
+                            total_times_ns: vec![10, 20],
                             max_duration: 20,
                             ..Default::default()
                         },
@@ -852,6 +863,7 @@ mod tests {
                             package: "qux".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -865,6 +877,7 @@ mod tests {
                             package: "main".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![40],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -932,6 +945,7 @@ mod tests {
                         package: "com.example".to_string(),
                         self_times_ns: vec![10],
                         sum_self_time_ns: 10,
+                        total_times_ns: vec![10],
                         max_duration: 10,
                         ..Default::default()
                     },
@@ -973,6 +987,7 @@ mod tests {
                         package: "com.example".to_string(),
                         self_times_ns: vec![10],
                         sum_self_time_ns: 10,
+                        total_times_ns: vec![10],
                         max_duration: 10,
                         ..Default::default()
                     },
@@ -1053,6 +1068,7 @@ mod tests {
                             package: "foo".to_string(),
                             self_times_ns: vec![0],
                             sum_self_time_ns: 0,
+                            total_times_ns: vec![10],
                             max_duration: 0,
                             ..Default::default()
                         },
@@ -1066,6 +1082,7 @@ mod tests {
                             package: "bar".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -1140,6 +1157,7 @@ mod tests {
                             package: "baz".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             parent_fingerprint: Some(1806052038),
                             ..Default::default()
@@ -1155,6 +1173,7 @@ mod tests {
                             in_app: true,
                             self_times_ns: vec![0],
                             sum_self_time_ns: 0,
+                            total_times_ns: vec![10],
                             sample_count: 0,
                             thread_id: "".to_string(),
                             max_duration: 0,
@@ -1170,6 +1189,7 @@ mod tests {
                             in_app: true,
                             self_times_ns: vec![0],
                             sum_self_time_ns: 0,
+                            total_times_ns: vec![10],
                             sample_count: 0,
                             thread_id: "".to_string(),
                             max_duration: 0,
@@ -1246,6 +1266,7 @@ mod tests {
                             in_app: true,
                             self_times_ns: vec![0],
                             sum_self_time_ns: 0,
+                            total_times_ns: vec![10],
                             sample_count: 0,
                             thread_id: "".to_string(),
                             max_duration: 0,
@@ -1261,6 +1282,7 @@ mod tests {
                             in_app: false,
                             self_times_ns: vec![0],
                             sum_self_time_ns: 0,
+                            total_times_ns: vec![10],
                             sample_count: 0,
                             thread_id: "".to_string(),
                             max_duration: 0,
@@ -1276,6 +1298,7 @@ mod tests {
                             in_app: true,
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             sample_count: 0,
                             thread_id: "".to_string(),
                             max_duration: 10,
