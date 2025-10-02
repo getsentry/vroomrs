@@ -495,6 +495,15 @@ class CallTreeFunction:
         """
         ...
     
+    def get_depth(self) -> Optional[int]:
+        """
+        Returns the depth of the function in the call tree.
+
+        Returns:
+            int: The depth of the function in the call tree, or None if not available.
+        """
+        ...
+    
     def get_function(self) -> str:
         """
         Returns the function name.

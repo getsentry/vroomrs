@@ -244,6 +244,11 @@ impl Node {
                         sample_count: self.sample_count,
                         thread_id: thread_id.to_string(),
                         max_duration: self_time_ns,
+                        depth: if generate_stack_fingerprints {
+                            Some(node_depth)
+                        } else {
+                            None
+                        },
                     });
             }
         } // end node_depth >= min_depth && should_aggregate_frame
@@ -272,6 +277,7 @@ pub struct CallTreeFunction {
     pub sample_count: u64,
     pub thread_id: String,
     pub max_duration: u64,
+    pub depth: Option<u16>,
 }
 
 #[pymethods]
@@ -386,6 +392,15 @@ impl CallTreeFunction {
     ///         The maximum duration in nanoseconds.
     pub fn get_max_duration(&self) -> u64 {
         self.max_duration
+    }
+
+    /// Returns the depth of the function in the call tree.
+    ///
+    /// Returns:
+    ///     int
+    ///         The depth of the function in the call tree.
+    pub fn get_depth(&self) -> Option<u16> {
+        self.depth
     }
 }
 
@@ -1202,6 +1217,7 @@ mod tests {
                             total_times_ns: vec![10],
                             max_duration: 10,
                             parent_fingerprint: Some(1806052038),
+                            depth: Some(2),
                             ..Default::default()
                         },
                     ),
@@ -1220,6 +1236,7 @@ mod tests {
                             sample_count: 0,
                             thread_id: "".to_string(),
                             max_duration: 0,
+                            depth: Some(0),
                         },
                     ),
                     (
@@ -1237,6 +1254,7 @@ mod tests {
                             sample_count: 0,
                             thread_id: "".to_string(),
                             max_duration: 0,
+                            depth: Some(1),
                         },
                     ),
                 ]
@@ -1315,6 +1333,7 @@ mod tests {
                             sample_count: 0,
                             thread_id: "".to_string(),
                             max_duration: 0,
+                            depth: Some(0),
                         },
                     ),
                     (
@@ -1332,6 +1351,7 @@ mod tests {
                             sample_count: 0,
                             thread_id: "".to_string(),
                             max_duration: 0,
+                            depth: Some(1),
                         },
                     ),
                     (
@@ -1349,6 +1369,7 @@ mod tests {
                             sample_count: 0,
                             thread_id: "".to_string(),
                             max_duration: 10,
+                            depth: Some(2),
                         },
                     ),
                 ]
