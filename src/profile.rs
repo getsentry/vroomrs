@@ -280,8 +280,6 @@ impl Profile {
     ///         If `False`, all functions including non-leaf functions with zero self-time will be included.
     ///         Defaults to `True`.
     ///     generate_stack_fingerprints (bool): If `True`, the fingerprint of the stack up to the current function and the parent function's fingerprint will be generated.
-    ///         If `False`, only the fingerprint of the current function will be generated.
-    ///         Defaults to `False`.
     ///
     /// Returns:
     ///     list[:class:`CallTreeFunction`]

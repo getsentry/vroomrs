@@ -138,7 +138,7 @@ impl Node {
 
         // determine the amount of time spent in application vs system functions in the children
         for child in &self.children {
-            let current_fingerprint = if generate_stack_fingerprints {
+            let stack_fingerprint = if generate_stack_fingerprints {
                 if filter_system_frames && !self.is_application {
                     // if filter_system_frames is enabled and the current frame is a system frame,
                     // pass the closest application frame's fingerprint
@@ -157,7 +157,7 @@ impl Node {
                 filter_system_frames,
                 filter_non_leaf_functions,
                 generate_stack_fingerprints,
-                current_fingerprint,
+                stack_fingerprint,
             );
             children_application_duration_ns += application_duration_ns;
             children_system_duration_ns += system_duration_ns;
@@ -201,10 +201,19 @@ impl Node {
                 // well as it is converted to a float somewhere
                 // not changing to the 32 bit hash function here to preserve backwards
                 // compatibility with existing fingerprints that we can cast
-                let fingerprint = self.frame.fingerprint(parent_fingerprint);
+                let fingerprint = self.frame.fingerprint(None);
+                let stack_fingerprint = if generate_stack_fingerprints {
+                    Some(self.frame.fingerprint(parent_fingerprint))
+                } else {
+                    None
+                };
 
                 results
-                    .entry(fingerprint)
+                    .entry(if generate_stack_fingerprints {
+                        stack_fingerprint.unwrap()
+                    } else {
+                        fingerprint
+                    })
                     .and_modify(|function| {
                         function.self_times_ns.push(self_time_ns);
                         function.sum_self_time_ns += self_time_ns;
@@ -219,6 +228,7 @@ impl Node {
                     })
                     .or_insert(CallTreeFunction {
                         parent_fingerprint,
+                        stack_fingerprint,
                         fingerprint,
                         function: self
                             .frame
@@ -251,6 +261,7 @@ impl Node {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CallTreeFunction {
     pub parent_fingerprint: Option<u32>,
+    pub stack_fingerprint: Option<u32>,
     pub fingerprint: u32,
     pub function: String,
     pub package: String,
@@ -269,10 +280,7 @@ impl CallTreeFunction {
     ///
     /// Returns:
     ///     int
-    ///         If generate_stack_fingerprints is enabled, the fingerprint is the fingerprint of the
-    ///         stack up to the current function.
-    ///         If generate_stack_fingerprints is disabled, the fingerprint is the fingerprint of the
-    ///         function.
+    ///         The fingerprint of the function.
     pub fn get_fingerprint(&self) -> u32 {
         self.fingerprint
     }
@@ -287,6 +295,16 @@ impl CallTreeFunction {
     ///         closest application frame.
     pub fn get_parent_fingerprint(&self) -> Option<u32> {
         self.parent_fingerprint
+    }
+
+    /// Returns the stack fingerprint.
+    ///
+    /// Returns:
+    ///     int
+    ///         If generate_stack_fingerprints is enabled, the stack fingerprint is the fingerprint of the
+    ///         stack up to the current function otherwise it'll be None.
+    pub fn get_stack_fingerprint(&self) -> Option<u32> {
+        self.stack_fingerprint
     }
 
     /// Returns the function name.
@@ -465,14 +483,13 @@ pub(crate) static SYMBOLICATION_SUPPORTED_PLATFORMS: Lazy<HashSet<String>> = Laz
 #[cfg(test)]
 mod tests {
 
+    use pretty_assertions::assert_eq;
     use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
     use crate::{
         frame::{Data, Frame},
         nodetree::{is_symbolicated_frame, CallTreeFunction, Node},
     };
-
-    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_is_symbolicated() {
@@ -1175,7 +1192,8 @@ mod tests {
                     (
                         333499442,
                         CallTreeFunction {
-                            fingerprint: 333499442,
+                            stack_fingerprint: Some(333499442),
+                            fingerprint: 509004053,
                             in_app: true,
                             function: "baz".to_string(),
                             package: "baz".to_string(),
@@ -1191,6 +1209,7 @@ mod tests {
                         2655321105,
                         CallTreeFunction {
                             parent_fingerprint: None,
+                            stack_fingerprint: Some(2655321105),
                             fingerprint: 2655321105,
                             function: "foo".to_string(),
                             package: "foo".to_string(),
@@ -1207,7 +1226,8 @@ mod tests {
                         1806052038,
                         CallTreeFunction {
                             parent_fingerprint: Some(2655321105),
-                            fingerprint: 1806052038,
+                            stack_fingerprint: Some(1806052038),
+                            fingerprint: 1766712469,
                             function: "bar".to_string(),
                             package: "bar".to_string(),
                             in_app: true,
@@ -1284,6 +1304,7 @@ mod tests {
                         2655321105,
                         CallTreeFunction {
                             parent_fingerprint: None,
+                            stack_fingerprint: Some(2655321105),
                             fingerprint: 2655321105,
                             function: "foo".to_string(),
                             package: "foo".to_string(),
@@ -1300,7 +1321,8 @@ mod tests {
                         1806052038,
                         CallTreeFunction {
                             parent_fingerprint: Some(2655321105),
-                            fingerprint: 1806052038,
+                            stack_fingerprint: Some(1806052038),
+                            fingerprint: 1766712469,
                             function: "bar".to_string(),
                             package: "bar".to_string(),
                             in_app: false,
@@ -1316,7 +1338,8 @@ mod tests {
                         3825246022,
                         CallTreeFunction {
                             parent_fingerprint: Some(2655321105),
-                            fingerprint: 3825246022,
+                            stack_fingerprint: Some(3825246022),
+                            fingerprint: 509004053,
                             function: "baz".to_string(),
                             package: "baz".to_string(),
                             in_app: true,

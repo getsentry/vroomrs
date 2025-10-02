@@ -210,8 +210,6 @@ class Profile:
                 If `False`, all functions including non-leaf functions with zero self-time will be included.
                 Defaults to `True`.
             generate_stack_fingerprints (bool): If `True`, the fingerprint of the stack up to the current function and the parent function's fingerprint will be generated.
-                If `False`, only the fingerprint of the current function will be generated.
-                Defaults to `False`.
 
         Returns:
             list[CallTreeFunction]: A list of CallTreeFunction objects, each containing metrics for a function in the call tree.
@@ -448,8 +446,6 @@ class ProfileChunk:
                 If `False`, all functions including non-leaf functions with zero self-time will be included.
                 Defaults to `True`.
             generate_stack_fingerprints (bool): If `True`, the fingerprint of the stack up to the current function and the parent function's fingerprint will be generated.
-                If `False`, only the fingerprint of the current function will be generated.
-                Defaults to `False`.
 
         Returns:
             list[CallTreeFunction]: A list of CallTreeFunction objects, each containing metrics for a function in the call tree.
@@ -473,10 +469,7 @@ class CallTreeFunction:
         Returns the function fingerprint.
 
         Returns:
-            int: If generate_stack_fingerprints is enabled, the fingerprint is the fingerprint of the
-                stack up to the current function.
-                If generate_stack_fingerprints is disabled, the fingerprint is the fingerprint of the
-                function.
+            int: The fingerprint of the function.
         """
         ...
     
@@ -489,6 +482,16 @@ class CallTreeFunction:
                 stack up to the parent function otherwise it'll be None.
                 If filter_system_frames is enabled, the parent fingerprint is the fingerprint of the
                 closest application frame.
+        """
+        ...
+    
+    def get_stack_fingerprint(self) -> Optional[int]:
+        """
+        Returns the stack fingerprint.
+
+        Returns:
+            int: If generate_stack_fingerprints is enabled, the stack fingerprint is the fingerprint of the
+                stack up to the current function otherwise it'll be None.
         """
         ...
     
