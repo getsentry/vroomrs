@@ -259,6 +259,9 @@ impl ProfileChunk {
     ///     filter_non_leaf_functions (bool): If `True`, functions with zero self-time (non-leaf functions) will be filtered out.
     ///         If `False`, all functions including non-leaf functions with zero self-time will be included.
     ///         Defaults to `True`.
+    ///     generate_stack_fingerprints (bool): If `True`, the fingerprint of the stack up to the current function and the parent function's fingerprint will be generated.
+    ///         If `False`, only the fingerprint of the current function will be generated.
+    ///         Defaults to `False`.
     ///
     /// Returns:
     ///     list[:class:`CallTreeFunction`]
@@ -271,13 +274,14 @@ impl ProfileChunk {
     ///     >>> metrics = profile_chunk.extract_functions_metrics(min_depth=2, filter_system_frames=True, max_unique_functions=10, filter_non_leaf_functions=False)
     ///     >>> for function_metric in metrics:
     ///     ...     do_something(function_metric)
-    #[pyo3(signature = (min_depth, filter_system_frames, max_unique_functions=None, filter_non_leaf_functions=true))]
+    #[pyo3(signature = (min_depth, filter_system_frames, max_unique_functions=None, filter_non_leaf_functions=true, generate_stack_fingerprints=false))]
     pub fn extract_functions_metrics(
         &mut self,
         min_depth: u16,
         filter_system_frames: bool,
         max_unique_functions: Option<usize>,
         filter_non_leaf_functions: bool,
+        generate_stack_fingerprints: bool,
     ) -> PyResult<Vec<CallTreeFunction>> {
         let call_trees: CallTreesStr = self.profile.call_trees(None)?;
         let mut functions: HashMap<u32, CallTreeFunction> = HashMap::new();
@@ -289,7 +293,10 @@ impl ProfileChunk {
                     tid,
                     0,
                     min_depth,
+                    filter_system_frames,
                     filter_non_leaf_functions,
+                    generate_stack_fingerprints,
+                    None,
                 );
             }
         }

@@ -325,11 +325,14 @@ impl Frame {
         }
     }
 
-    pub fn fingerprint(&self) -> u32 {
+    pub fn fingerprint(&self, parent_fingerprint: Option<u32>) -> u32 {
         let mut hasher = Fnv64::default();
         hasher.write(self.module_or_package().as_bytes());
         hasher.write(":".as_bytes());
         hasher.write(self.function.as_deref().unwrap_or_default().as_bytes());
+        if let Some(parent_fingerprint) = parent_fingerprint {
+            hasher.write_u32(parent_fingerprint);
+        }
 
         // casting to an uint32 here because snuba does not handle uint64 values well
         // as it is converted to a float somewhere not changing to the 32 bit hash

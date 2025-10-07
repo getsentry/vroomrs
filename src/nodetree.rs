@@ -121,25 +121,43 @@ impl Node {
     // children with durations 20ms, 30ms, and 40ms, and they are system, application, system
     // functions respectively, the self-time of `bar` will be 70ms because
     // 100ms - 30ms = 70ms.
+    #[allow(clippy::too_many_arguments)]
     pub fn collect_functions(
         &self,
         results: &mut HashMap<u32, CallTreeFunction>,
         thread_id: &str,
         node_depth: u16,
         min_depth: u16,
+        filter_system_frames: bool,
         filter_non_leaf_functions: bool,
+        generate_stack_fingerprints: bool,
+        parent_fingerprint: Option<u32>,
     ) -> (u64, u64) {
         let mut children_application_duration_ns: u64 = 0;
         let mut children_system_duration_ns: u64 = 0;
 
         // determine the amount of time spent in application vs system functions in the children
         for child in &self.children {
+            let stack_fingerprint = if generate_stack_fingerprints {
+                if filter_system_frames && !self.is_application {
+                    // if filter_system_frames is enabled and the current frame is a system frame,
+                    // pass the closest application frame's fingerprint
+                    parent_fingerprint
+                } else {
+                    Some(self.frame.fingerprint(parent_fingerprint))
+                }
+            } else {
+                parent_fingerprint
+            };
             let (application_duration_ns, system_duration_ns) = child.borrow().collect_functions(
                 results,
                 thread_id,
                 node_depth + 1,
                 min_depth,
+                filter_system_frames,
                 filter_non_leaf_functions,
+                generate_stack_fingerprints,
+                stack_fingerprint,
             );
             children_application_duration_ns += application_duration_ns;
             children_system_duration_ns += system_duration_ns;
@@ -183,13 +201,23 @@ impl Node {
                 // well as it is converted to a float somewhere
                 // not changing to the 32 bit hash function here to preserve backwards
                 // compatibility with existing fingerprints that we can cast
-                let fingerprint = self.frame.fingerprint();
+                let fingerprint = self.frame.fingerprint(None);
+                let stack_fingerprint = if generate_stack_fingerprints {
+                    Some(self.frame.fingerprint(parent_fingerprint))
+                } else {
+                    None
+                };
 
                 results
-                    .entry(fingerprint)
+                    .entry(if generate_stack_fingerprints {
+                        stack_fingerprint.unwrap()
+                    } else {
+                        fingerprint
+                    })
                     .and_modify(|function| {
                         function.self_times_ns.push(self_time_ns);
                         function.sum_self_time_ns += self_time_ns;
+                        function.total_times_ns.push(self.duration_ns);
                         function.sample_count += self.sample_count;
                         if self_time_ns > function.max_duration {
                             function.max_duration = self_time_ns;
@@ -199,6 +227,8 @@ impl Node {
                         }
                     })
                     .or_insert(CallTreeFunction {
+                        parent_fingerprint,
+                        stack_fingerprint,
                         fingerprint,
                         function: self
                             .frame
@@ -210,9 +240,15 @@ impl Node {
                         in_app: self.is_application,
                         self_times_ns: vec![self_time_ns],
                         sum_self_time_ns: self_time_ns,
+                        total_times_ns: vec![self.duration_ns],
                         sample_count: self.sample_count,
                         thread_id: thread_id.to_string(),
                         max_duration: self_time_ns,
+                        depth: if generate_stack_fingerprints {
+                            Some(node_depth)
+                        } else {
+                            None
+                        },
                     });
             }
         } // end node_depth >= min_depth && should_aggregate_frame
@@ -229,15 +265,19 @@ impl Node {
 #[pyclass]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CallTreeFunction {
+    pub parent_fingerprint: Option<u32>,
+    pub stack_fingerprint: Option<u32>,
     pub fingerprint: u32,
     pub function: String,
     pub package: String,
     pub in_app: bool,
     pub self_times_ns: Vec<u64>,
+    pub total_times_ns: Vec<u64>,
     pub sum_self_time_ns: u64,
     pub sample_count: u64,
     pub thread_id: String,
     pub max_duration: u64,
+    pub depth: Option<u16>,
 }
 
 #[pymethods]
@@ -246,9 +286,31 @@ impl CallTreeFunction {
     ///
     /// Returns:
     ///     int
-    ///         The function fingerprint.
+    ///         The fingerprint of the function.
     pub fn get_fingerprint(&self) -> u32 {
         self.fingerprint
+    }
+
+    /// Returns the parent's function fingerprint.
+    ///
+    /// Returns:
+    ///     int
+    ///         If generate_stack_fingerprints is enabled, the parent fingerprint is the fingerprint of the
+    ///         stack up to the parent function otherwise it'll be just None.
+    ///         If filter_system_frames is enabled, the parent fingerprint is the fingerprint of the
+    ///         closest application frame.
+    pub fn get_parent_fingerprint(&self) -> Option<u32> {
+        self.parent_fingerprint
+    }
+
+    /// Returns the stack fingerprint.
+    ///
+    /// Returns:
+    ///     int
+    ///         If generate_stack_fingerprints is enabled, the stack fingerprint is the fingerprint of the
+    ///         stack up to the current function otherwise it'll be None.
+    pub fn get_stack_fingerprint(&self) -> Option<u32> {
+        self.stack_fingerprint
     }
 
     /// Returns the function name.
@@ -296,6 +358,15 @@ impl CallTreeFunction {
         self.sum_self_time_ns
     }
 
+    /// Returns the total times in nanoseconds.
+    ///
+    /// Returns:
+    ///     list[int]
+    ///         The total times in nanoseconds.
+    pub fn get_total_times_ns(&self) -> Vec<u64> {
+        self.total_times_ns.clone()
+    }
+
     /// Returns the sample count.
     ///
     /// Returns:
@@ -321,6 +392,15 @@ impl CallTreeFunction {
     ///         The maximum duration in nanoseconds.
     pub fn get_max_duration(&self) -> u64 {
         self.max_duration
+    }
+
+    /// Returns the depth of the function in the call tree.
+    ///
+    /// Returns:
+    ///     int
+    ///         The depth of the function in the call tree.
+    pub fn get_depth(&self) -> Option<u16> {
+        self.depth
     }
 }
 
@@ -418,14 +498,13 @@ pub(crate) static SYMBOLICATION_SUPPORTED_PLATFORMS: Lazy<HashSet<String>> = Laz
 #[cfg(test)]
 mod tests {
 
+    use pretty_assertions::assert_eq;
     use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
     use crate::{
         frame::{Data, Frame},
         nodetree::{is_symbolicated_frame, CallTreeFunction, Node},
     };
-
-    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_is_symbolicated() {
@@ -532,6 +611,7 @@ mod tests {
                         package: "foo".to_string(),
                         self_times_ns: vec![10],
                         sum_self_time_ns: 10,
+                        total_times_ns: vec![10],
                         max_duration: 10,
                         ..Default::default()
                     },
@@ -562,6 +642,7 @@ mod tests {
                         package: "foo".to_string(),
                         self_times_ns: vec![10],
                         sum_self_time_ns: 10,
+                        total_times_ns: vec![10],
                         max_duration: 10,
                         ..Default::default()
                     },
@@ -604,6 +685,7 @@ mod tests {
                             package: "foo".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![20],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -617,6 +699,7 @@ mod tests {
                             package: "bar".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -682,6 +765,7 @@ mod tests {
                             package: "foo".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -695,6 +779,7 @@ mod tests {
                             package: "baz".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -806,6 +891,7 @@ mod tests {
                             package: "foo".to_string(),
                             self_times_ns: vec![10, 20],
                             sum_self_time_ns: 30,
+                            total_times_ns: vec![10, 20],
                             max_duration: 20,
                             ..Default::default()
                         },
@@ -819,6 +905,7 @@ mod tests {
                             package: "baz".to_string(),
                             self_times_ns: vec![10, 20],
                             sum_self_time_ns: 30,
+                            total_times_ns: vec![10, 20],
                             max_duration: 20,
                             ..Default::default()
                         },
@@ -832,6 +919,7 @@ mod tests {
                             package: "qux".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -845,6 +933,7 @@ mod tests {
                             package: "main".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![40],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -912,6 +1001,7 @@ mod tests {
                         package: "com.example".to_string(),
                         self_times_ns: vec![10],
                         sum_self_time_ns: 10,
+                        total_times_ns: vec![10],
                         max_duration: 10,
                         ..Default::default()
                     },
@@ -953,6 +1043,7 @@ mod tests {
                         package: "com.example".to_string(),
                         self_times_ns: vec![10],
                         sum_self_time_ns: 10,
+                        total_times_ns: vec![10],
                         max_duration: 10,
                         ..Default::default()
                     },
@@ -980,7 +1071,8 @@ mod tests {
 
         for test in &test_cases {
             let mut results: HashMap<u32, CallTreeFunction> = HashMap::new();
-            test.node.collect_functions(&mut results, "", 0, 0, true);
+            test.node
+                .collect_functions(&mut results, "", 0, 0, false, true, false, None);
 
             assert_eq!(results, test.want, "test `{}` failed", test.name);
         }
@@ -1032,6 +1124,7 @@ mod tests {
                             package: "foo".to_string(),
                             self_times_ns: vec![0],
                             sum_self_time_ns: 0,
+                            total_times_ns: vec![10],
                             max_duration: 0,
                             ..Default::default()
                         },
@@ -1045,6 +1138,7 @@ mod tests {
                             package: "bar".to_string(),
                             self_times_ns: vec![10],
                             sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
                             max_duration: 10,
                             ..Default::default()
                         },
@@ -1058,7 +1152,237 @@ mod tests {
 
         for test in &test_cases {
             let mut results: HashMap<u32, CallTreeFunction> = HashMap::new();
-            test.node.collect_functions(&mut results, "", 0, 0, false);
+            test.node
+                .collect_functions(&mut results, "", 0, 0, false, false, false, None);
+
+            assert_eq!(results, test.want, "test `{}` failed", test.name);
+        }
+    }
+
+    #[test]
+    fn test_node_collect_functions_stack_fingerprints_all_frames() {
+        struct TestStruct {
+            name: String,
+            node: Node,
+            want: HashMap<u32, CallTreeFunction>,
+        }
+
+        let test_cases: Vec<TestStruct> = vec![
+            TestStruct {
+                name: "all frames with stack fingerprint".to_string(),
+                node: Node {
+                    duration_ns: 10,
+                    is_application: true,
+                    frame: Frame {
+                        platform: Some("python".to_string()),
+                        function: Some("foo".to_string()),
+                        package: Some("foo".to_string()),
+                        ..Default::default()
+                    },
+                    children: vec![Rc::new(RefCell::new(Node {
+                        duration_ns: 10,
+                        is_application: true,
+                        frame: Frame {
+                            platform: Some("python".to_string()),
+                            function: Some("bar".to_string()),
+                            package: Some("bar".to_string()),
+                            ..Default::default()
+                        },
+                        children: vec![Rc::new(RefCell::new(Node {
+                            duration_ns: 10,
+                            is_application: true,
+                            frame: Frame {
+                                platform: Some("python".to_string()),
+                                function: Some("baz".to_string()),
+                                package: Some("baz".to_string()),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        }))],
+                        ..Default::default()
+                    }))],
+                    ..Default::default()
+                },
+                want: [
+                    (
+                        333499442,
+                        CallTreeFunction {
+                            stack_fingerprint: Some(333499442),
+                            fingerprint: 509004053,
+                            in_app: true,
+                            function: "baz".to_string(),
+                            package: "baz".to_string(),
+                            self_times_ns: vec![10],
+                            sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
+                            max_duration: 10,
+                            parent_fingerprint: Some(1806052038),
+                            depth: Some(2),
+                            ..Default::default()
+                        },
+                    ),
+                    (
+                        2655321105,
+                        CallTreeFunction {
+                            parent_fingerprint: None,
+                            stack_fingerprint: Some(2655321105),
+                            fingerprint: 2655321105,
+                            function: "foo".to_string(),
+                            package: "foo".to_string(),
+                            in_app: true,
+                            self_times_ns: vec![0],
+                            sum_self_time_ns: 0,
+                            total_times_ns: vec![10],
+                            sample_count: 0,
+                            thread_id: "".to_string(),
+                            max_duration: 0,
+                            depth: Some(0),
+                        },
+                    ),
+                    (
+                        1806052038,
+                        CallTreeFunction {
+                            parent_fingerprint: Some(2655321105),
+                            stack_fingerprint: Some(1806052038),
+                            fingerprint: 1766712469,
+                            function: "bar".to_string(),
+                            package: "bar".to_string(),
+                            in_app: true,
+                            self_times_ns: vec![0],
+                            sum_self_time_ns: 0,
+                            total_times_ns: vec![10],
+                            sample_count: 0,
+                            thread_id: "".to_string(),
+                            max_duration: 0,
+                            depth: Some(1),
+                        },
+                    ),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
+            }, // end first test case
+        ];
+
+        for test in &test_cases {
+            let mut results: HashMap<u32, CallTreeFunction> = HashMap::new();
+            test.node
+                .collect_functions(&mut results, "", 0, 0, false, false, true, None);
+
+            assert_eq!(results, test.want, "test `{}` failed", test.name);
+        }
+    }
+
+    #[test]
+    fn test_node_collect_functions_stack_fingerprints_application_frames() {
+        struct TestStruct {
+            name: String,
+            node: Node,
+            want: HashMap<u32, CallTreeFunction>,
+        }
+
+        let test_cases: Vec<TestStruct> = vec![
+            TestStruct {
+                name: "application frames with stack fingerprint".to_string(),
+                node: Node {
+                    duration_ns: 10,
+                    is_application: true,
+                    frame: Frame {
+                        platform: Some("python".to_string()),
+                        function: Some("foo".to_string()),
+                        package: Some("foo".to_string()),
+                        ..Default::default()
+                    },
+                    children: vec![Rc::new(RefCell::new(Node {
+                        duration_ns: 10,
+                        is_application: false,
+                        frame: Frame {
+                            platform: Some("python".to_string()),
+                            function: Some("bar".to_string()),
+                            package: Some("bar".to_string()),
+                            ..Default::default()
+                        },
+                        children: vec![Rc::new(RefCell::new(Node {
+                            duration_ns: 10,
+                            is_application: true,
+                            frame: Frame {
+                                platform: Some("python".to_string()),
+                                function: Some("baz".to_string()),
+                                package: Some("baz".to_string()),
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        }))],
+                        ..Default::default()
+                    }))],
+                    ..Default::default()
+                },
+                want: [
+                    (
+                        2655321105,
+                        CallTreeFunction {
+                            parent_fingerprint: None,
+                            stack_fingerprint: Some(2655321105),
+                            fingerprint: 2655321105,
+                            function: "foo".to_string(),
+                            package: "foo".to_string(),
+                            in_app: true,
+                            self_times_ns: vec![0],
+                            sum_self_time_ns: 0,
+                            total_times_ns: vec![10],
+                            sample_count: 0,
+                            thread_id: "".to_string(),
+                            max_duration: 0,
+                            depth: Some(0),
+                        },
+                    ),
+                    (
+                        1806052038,
+                        CallTreeFunction {
+                            parent_fingerprint: Some(2655321105),
+                            stack_fingerprint: Some(1806052038),
+                            fingerprint: 1766712469,
+                            function: "bar".to_string(),
+                            package: "bar".to_string(),
+                            in_app: false,
+                            self_times_ns: vec![0],
+                            sum_self_time_ns: 0,
+                            total_times_ns: vec![10],
+                            sample_count: 0,
+                            thread_id: "".to_string(),
+                            max_duration: 0,
+                            depth: Some(1),
+                        },
+                    ),
+                    (
+                        3825246022,
+                        CallTreeFunction {
+                            parent_fingerprint: Some(2655321105),
+                            stack_fingerprint: Some(3825246022),
+                            fingerprint: 509004053,
+                            function: "baz".to_string(),
+                            package: "baz".to_string(),
+                            in_app: true,
+                            self_times_ns: vec![10],
+                            sum_self_time_ns: 10,
+                            total_times_ns: vec![10],
+                            sample_count: 0,
+                            thread_id: "".to_string(),
+                            max_duration: 10,
+                            depth: Some(2),
+                        },
+                    ),
+                ]
+                .iter()
+                .cloned()
+                .collect(),
+            }, // end first test case
+        ];
+
+        for test in &test_cases {
+            let mut results: HashMap<u32, CallTreeFunction> = HashMap::new();
+            test.node
+                .collect_functions(&mut results, "", 0, 0, true, false, true, None);
 
             assert_eq!(results, test.want, "test `{}` failed", test.name);
         }
