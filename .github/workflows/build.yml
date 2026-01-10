@@ -21,7 +21,7 @@ jobs:
             target: aarch64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v2
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
@@ -48,7 +48,7 @@ jobs:
           - runner: macos-latest
             target: aarch64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v2
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
@@ -67,7 +67,7 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v2
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
