@@ -12,17 +12,13 @@ on:
 env:
   RUSTFLAGS: -Dwarnings
 
-
-permissions:
-  contents: write
-  pull-requests: write
 jobs:
   lints:
     name: Style/Linting
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v3
+      - uses: actions/checkout@v3
 
       - run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy --no-self-update
 
@@ -48,7 +44,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v3
+      - uses: actions/checkout@v3
 
       - run: rustup toolchain install stable --profile minimal --no-self-update
 
