@@ -158,6 +158,16 @@ impl Frame {
             }
         }
 
+        // If filename reveals node_modules, it's a vendor frame regardless
+        // of what abs_path looks like. This handles the case where abs_path
+        // is an unresolved CDN URL (e.g. https://.../vendors.HASH.js) but
+        // the source map resolved the filename to a node_modules path.
+        if let Some(file) = &self.file {
+            if JS_SYSTEM_PACKAGE_REGEX.is_match(file) {
+                return false;
+            }
+        }
+
         self.path.is_none()
             || self
                 .path
@@ -636,6 +646,40 @@ mod tests {
                     ..Default::default()
                 },
                 is_application: false,
+            },
+            TestStruct {
+                name: "cdn_url_with_node_modules_filename".to_string(),
+                frame: Frame {
+                    path: Some(
+                        "https://business.example.com/assets/vendors.b1d183fd6fb0da242e21.js"
+                            .to_string(),
+                    ),
+                    file: Some(
+                        "./node_modules/react-dom/cjs/react-dom.production.min.js".to_string(),
+                    ),
+                    ..Default::default()
+                },
+                is_application: false,
+            },
+            TestStruct {
+                name: "cdn_url_no_filename_unresolved".to_string(),
+                frame: Frame {
+                    path: Some(
+                        "https://business.example.com/assets/vendors.b1d183fd6fb0da242e21.js"
+                            .to_string(),
+                    ),
+                    ..Default::default()
+                },
+                is_application: true,
+            },
+            TestStruct {
+                name: "cdn_url_with_app_filename".to_string(),
+                frame: Frame {
+                    path: Some("https://business.example.com/assets/main.abc123.js".to_string()),
+                    file: Some("./src/pages/Dashboard.tsx".to_string()),
+                    ..Default::default()
+                },
+                is_application: true,
             },
         ];
         for test_case in test_cases {
