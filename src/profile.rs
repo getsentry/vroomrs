@@ -332,7 +332,7 @@ impl Profile {
         }
 
         // sort the list in descending order, and take the top N results
-        functions_list.sort_by(|a, b| b.sum_self_time_ns.cmp(&a.sum_self_time_ns));
+        functions_list.sort_by_key(|f| std::cmp::Reverse(f.sum_self_time_ns));
 
         functions_list.truncate(max_unique_functions.unwrap_or(functions_list.len()));
         Ok(functions_list)

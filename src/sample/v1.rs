@@ -412,9 +412,12 @@ impl ProfileInterface for SampleProfile {
         // Sort samples by timestamp
         self.profile
             .samples
-            .sort_by(|a, b| a.elapsed_since_start_ns.cmp(&b.elapsed_since_start_ns));
+            .sort_by_key(|s| s.elapsed_since_start_ns);
 
         let active_thread_id = self.transaction.active_thread_id;
+        // Cocoa frame detection targets the main thread, which may differ from the
+        // active thread, so build call trees for it as well when one is resolved.
+        let main_thread_id = self.get_main_thread_id();
         let mut trees_by_thread_id: HashMap<u64, Vec<Rc<RefCell<Node>>>> = HashMap::new();
         let mut samples_by_thread_id: HashMap<u64, Vec<&Sample>> = HashMap::new();
 
@@ -428,7 +431,7 @@ impl ProfileInterface for SampleProfile {
         let mut hasher = Fnv64::default();
 
         for (thread_id, samples) in samples_by_thread_id {
-            if thread_id != active_thread_id {
+            if thread_id != active_thread_id && Some(thread_id) != main_thread_id {
                 continue;
             }
 
@@ -2148,5 +2151,74 @@ mod tests {
                 test_case.name
             );
         }
+    }
+
+    #[test]
+    fn test_call_trees_builds_main_thread() {
+        use crate::sample::ThreadMetadata;
+        use std::collections::HashMap;
+
+        // Cocoa profile whose main thread (id 2) differs from the active thread (id 1).
+        let mut profile = SampleProfile {
+            platform: "cocoa".to_string(),
+            transaction: Transaction {
+                active_thread_id: 1,
+                ..Default::default()
+            },
+            profile: Profile {
+                samples: vec![
+                    Sample {
+                        stack_id: 0,
+                        thread_id: 1,
+                        elapsed_since_start_ns: 10,
+                        ..Default::default()
+                    },
+                    Sample {
+                        stack_id: 0,
+                        thread_id: 1,
+                        elapsed_since_start_ns: 20,
+                        ..Default::default()
+                    },
+                    Sample {
+                        stack_id: 0,
+                        thread_id: 2,
+                        elapsed_since_start_ns: 10,
+                        ..Default::default()
+                    },
+                    Sample {
+                        stack_id: 0,
+                        thread_id: 2,
+                        elapsed_since_start_ns: 20,
+                        ..Default::default()
+                    },
+                ],
+                stacks: vec![vec![0]],
+                frames: vec![Frame {
+                    function: Some("function0".to_string()),
+                    ..Default::default()
+                }],
+                thread_metadata: Some(HashMap::from([(
+                    "2".to_string(),
+                    ThreadMetadata {
+                        name: Some("main".to_string()),
+                        priority: None,
+                    },
+                )])),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let call_trees = profile.call_trees().unwrap();
+        // Trees must be built for both the active thread and the resolved main thread,
+        // otherwise MainThread frame detection finds no trees for the main thread.
+        assert!(
+            call_trees.contains_key(&1),
+            "missing call trees for the active thread"
+        );
+        assert!(
+            call_trees.contains_key(&2),
+            "missing call trees for the main thread"
+        );
     }
 }
