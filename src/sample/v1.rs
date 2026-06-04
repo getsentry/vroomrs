@@ -537,6 +537,25 @@ impl ProfileInterface for SampleProfile {
         Cow::Borrowed(&self.transaction)
     }
 
+    fn get_main_thread_id(&self) -> Option<u64> {
+        match self.platform.as_str() {
+            "cocoa" => self
+                .profile
+                .thread_metadata
+                .as_ref()?
+                .iter()
+                .find_map(|(id, meta)| {
+                    let thread_id = id.parse::<u64>().ok()?;
+                    if meta.name.as_deref() == Some("main") {
+                        Some(thread_id)
+                    } else {
+                        None
+                    }
+                }),
+            _ => None,
+        }
+    }
+
     fn get_transaction_tags(&self) -> &HashMap<String, String> {
         &self.transaction_tags
     }
