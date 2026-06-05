@@ -1556,7 +1556,9 @@ mod tests {
 
     #[test]
     fn test_detect_frame_main_thread_no_fallback() {
-        use crate::{occurrence::detect_frame::detect_frame, sample::v1::SampleProfile, types::Transaction};
+        use crate::{
+            occurrence::detect_frame::detect_frame, sample::v1::SampleProfile, types::Transaction,
+        };
 
         // A matching node living on the active thread (id 1). There is no main thread.
         let matching_node = Rc::new(RefCell::new(Node {
@@ -1566,8 +1568,7 @@ mod tests {
             package: "pkg".to_string(),
             ..Default::default()
         }));
-        let call_trees: crate::types::CallTreesU64 =
-            HashMap::from([(1u64, vec![matching_node])]);
+        let call_trees: crate::types::CallTreesU64 = HashMap::from([(1u64, vec![matching_node])]);
 
         let options = DetectExactFrameOptions {
             detection_thread: DetectionThread::MainThread,
@@ -1602,7 +1603,12 @@ mod tests {
             ..options
         };
         let mut active_occurrences = Vec::new();
-        detect_frame(&profile, &call_trees, &active_options, &mut active_occurrences);
+        detect_frame(
+            &profile,
+            &call_trees,
+            &active_options,
+            &mut active_occurrences,
+        );
         assert_eq!(
             active_occurrences.len(),
             1,
