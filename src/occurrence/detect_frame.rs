@@ -576,21 +576,25 @@ pub fn detect_frame(
     // List nodes matching criteria
     let mut nodes: HashMap<NodeKey, NodeInfo> = HashMap::new();
 
+    let detect_in_thread = |thread_id: u64, nodes: &mut HashMap<NodeKey, NodeInfo>| {
+        if let Some(call_trees) = call_trees_per_thread_id.get(&thread_id) {
+            for root in call_trees {
+                detect_frame_in_call_tree(root, options, nodes);
+            }
+        }
+    };
+
     match options.detection_thread() {
-        DetectionThread::ActiveThread | DetectionThread::MainThread => {
-            // For MainThread, fall back to the active thread if we can't find a main thread.
-            let thread_id = match options.detection_thread() {
-                DetectionThread::MainThread => profile.get_main_thread_id(),
-                _ => None,
-            }
-            .unwrap_or_else(|| profile.get_transaction().active_thread_id);
-            if let Some(call_trees) = call_trees_per_thread_id.get(&thread_id) {
-                for root in call_trees {
-                    detect_frame_in_call_tree(root, options, &mut nodes);
-                }
-            } else {
+        DetectionThread::ActiveThread => {
+            let thread_id = profile.get_transaction().active_thread_id;
+            detect_in_thread(thread_id, &mut nodes);
+        }
+        DetectionThread::MainThread => {
+            // Only consider the main thread; do not fall back to the active thread.
+            let Some(thread_id) = profile.get_main_thread_id() else {
                 return;
-            }
+            };
+            detect_in_thread(thread_id, &mut nodes);
         }
         DetectionThread::AllThreads => {
             for call_trees in call_trees_per_thread_id.values() {
@@ -1548,5 +1552,61 @@ mod tests {
 
             assert_eq!(nodes, test.want, "test '{}' failed", test.name);
         }
+    }
+
+    #[test]
+    fn test_detect_frame_main_thread_no_fallback() {
+        use crate::{occurrence::detect_frame::detect_frame, sample::v1::SampleProfile, types::Transaction};
+
+        // A matching node living on the active thread (id 1). There is no main thread.
+        let matching_node = Rc::new(RefCell::new(Node {
+            duration_ns: 20_000_000,
+            sample_count: 4,
+            name: "func".to_string(),
+            package: "pkg".to_string(),
+            ..Default::default()
+        }));
+        let call_trees: crate::types::CallTreesU64 =
+            HashMap::from([(1u64, vec![matching_node])]);
+
+        let options = DetectExactFrameOptions {
+            detection_thread: DetectionThread::MainThread,
+            duration_threshold: Duration::from_millis(16),
+            sample_threshold: 1,
+            functions_by_package: HashMap::from([("pkg", HashMap::from([("func", FILE_READ)]))]),
+        };
+
+        // Cocoa profile whose active thread (id 1) has the matching node but which has
+        // no resolvable main thread.
+        let profile = SampleProfile {
+            platform: "cocoa".to_string(),
+            transaction: Transaction {
+                active_thread_id: 1,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        // MainThread detection must not fall back to the active thread, so no
+        // occurrences should be produced.
+        let mut occurrences = Vec::new();
+        detect_frame(&profile, &call_trees, &options, &mut occurrences);
+        assert!(
+            occurrences.is_empty(),
+            "MainThread detection should not fall back to the active thread"
+        );
+
+        // Sanity check: the node is matchable, so ActiveThread detection finds it.
+        let active_options = DetectExactFrameOptions {
+            detection_thread: DetectionThread::ActiveThread,
+            ..options
+        };
+        let mut active_occurrences = Vec::new();
+        detect_frame(&profile, &call_trees, &active_options, &mut active_occurrences);
+        assert_eq!(
+            active_occurrences.len(),
+            1,
+            "ActiveThread detection should find the matching node"
+        );
     }
 }
