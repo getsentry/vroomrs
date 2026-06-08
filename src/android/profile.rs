@@ -257,6 +257,10 @@ impl ProfileInterface for AndroidProfile {
         })
     }
 
+    fn get_main_thread_id(&self) -> Option<u64> {
+        None
+    }
+
     fn get_transaction_tags(&self) -> &HashMap<String, String> {
         &self.transaction_tags
     }
