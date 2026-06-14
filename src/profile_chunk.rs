@@ -6,7 +6,7 @@ use crate::{
     android::chunk::AndroidChunk,
     nodetree::CallTreeFunction,
     sample::v2::SampleChunk,
-    types::{CallTreesStr, ChunkInterface},
+    types::{Attachment, CallTreesStr, ChunkInterface},
     utils::{compress_lz4, decompress_lz4},
 };
 
@@ -45,12 +45,10 @@ impl ProfileChunk {
         platform: &str,
     ) -> Result<Self, serde_json::Error> {
         match platform {
-            "android" => {
-                let android: AndroidChunk = serde_json::from_slice(profile)?;
-                Ok(ProfileChunk {
-                    profile: Box::new(android),
-                })
-            }
+            // Only profiles without a version use the legacy android format:
+            // android profiles with a version (e.g. "2") use the sample format,
+            // so we fall back to version-based detection.
+            "android" => Self::from_json_vec(profile),
             _ => {
                 let sample: SampleChunk = serde_json::from_slice(profile)?;
                 Ok(ProfileChunk {
@@ -127,6 +125,28 @@ impl ProfileChunk {
     ///         The project ID to which the profile belongs.
     pub fn get_project_id(&self) -> u64 {
         self.profile.get_project_id()
+    }
+
+    /// Returns the attachments related to this chunk.
+    ///
+    /// Returns:
+    ///     list[Attachment]
+    ///         The attachments (e.g. a raw profile) related to this chunk.
+    ///         Empty if no attachments are available.
+    pub fn get_attachments(&self) -> Vec<Attachment> {
+        self.profile.get_attachments().to_vec()
+    }
+
+    /// Sets the attachments related to this chunk.
+    ///
+    /// Attachments are only supported for sample chunks:
+    /// this is a no-op for Android chunks.
+    ///
+    /// Args:
+    ///     attachments (list[Attachment]): The attachments related to this
+    ///         chunk, replacing any existing ones. An empty list clears them.
+    pub fn set_attachments(&mut self, attachments: Vec<Attachment>) {
+        self.profile.set_attachments(attachments);
     }
 
     /// Returns the received timestamp.
@@ -363,6 +383,60 @@ mod tests {
                 test.name
             )
         }
+    }
+
+    #[test]
+    fn test_android_platform_with_version_is_sample_chunk() {
+        // A chunk with platform=android but a version set uses the
+        // sample v2 format and must not be treated as a legacy
+        // android chunk, no matter how it's deserialized.
+        let payload = include_bytes!("../tests/fixtures/sample/v2/valid_cocoa.json");
+        let mut value: serde_json::Value = serde_json::from_slice(payload).unwrap();
+        value["platform"] = "android".into();
+        let json = serde_json::to_vec(&value).unwrap();
+
+        for chunk in [
+            ProfileChunk::from_json_vec(&json).unwrap(),
+            ProfileChunk::from_json_vec_and_platform(&json, "android").unwrap(),
+        ] {
+            assert_eq!(chunk.get_platform(), "android");
+            assert!(chunk
+                .profile
+                .as_any()
+                .downcast_ref::<SampleChunk>()
+                .is_some());
+        }
+
+        // Legacy android chunks (no version) still deserialize as such.
+        let payload = include_bytes!("../tests/fixtures/android/chunk/valid.json");
+        let chunk = ProfileChunk::from_json_vec_and_platform(payload, "android").unwrap();
+        assert!(chunk
+            .profile
+            .as_any()
+            .downcast_ref::<AndroidChunk>()
+            .is_some());
+    }
+
+    #[test]
+    fn test_attachments_survive_compression() {
+        use crate::types::Attachment;
+
+        // The sentry writer flow: deserialize the chunk, stamp the
+        // attachments, compress and store. The attachments must survive
+        // into the stored chunk representation.
+        let payload = include_bytes!("../tests/fixtures/sample/v2/valid_cocoa.json");
+        let mut chunk = ProfileChunk::from_json_vec(payload).unwrap();
+        let attachments = vec![Attachment {
+            name: "raw_profile".to_string(),
+            content_type: Some("application/x-perfetto".to_string()),
+            stored_id: "aef123345".to_string(),
+        }];
+        chunk.set_attachments(attachments.clone());
+        assert_eq!(chunk.get_attachments(), attachments);
+
+        let compressed = chunk.compress().unwrap();
+        let decompressed = ProfileChunk::decompress(compressed.as_slice()).unwrap();
+        assert_eq!(decompressed.get_attachments(), attachments);
     }
 
     #[test]

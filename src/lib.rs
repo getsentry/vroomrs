@@ -146,6 +146,7 @@ fn decompress_profile(profile: &[u8]) -> PyResult<Profile> {
 fn vroomrs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ProfileChunk>()?;
     m.add_class::<CallTreeFunction>()?;
+    m.add_class::<types::Attachment>()?;
     m.add_function(wrap_pyfunction!(profile_chunk_from_json_str, m)?)?;
     m.add_function(wrap_pyfunction!(decompress_profile_chunk, m)?)?;
     m.add_function(wrap_pyfunction!(profile_from_json_str, m)?)?;

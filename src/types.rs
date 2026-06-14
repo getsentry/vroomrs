@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 
 use pyo3::exceptions::PyValueError;
-use pyo3::{pyclass, PyErr};
+use pyo3::{pyclass, pymethods, PyErr};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::borrow::Cow;
@@ -83,6 +83,8 @@ pub trait ChunkInterface {
     fn get_platform(&self) -> String;
     fn get_profiler_id(&self) -> &str;
     fn get_project_id(&self) -> u64;
+    fn get_attachments(&self) -> &[Attachment];
+    fn set_attachments(&mut self, attachments: Vec<Attachment>);
     fn get_received(&self) -> f64;
     fn get_release(&self) -> Option<&str>;
     fn get_retention_days(&self) -> i32;
@@ -105,6 +107,44 @@ pub trait ChunkInterface {
     fn to_json_vec(&self) -> Result<Vec<u8>, serde_json::Error>;
 
     fn as_any(&self) -> &dyn Any;
+}
+
+/// A file related to the chunk (e.g. a raw profile), stored in the object store.
+#[pyclass(eq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct Attachment {
+    #[pyo3(get)]
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[pyo3(get)]
+    pub content_type: Option<String>,
+    #[pyo3(get)]
+    pub stored_id: String,
+}
+
+#[pymethods]
+impl Attachment {
+    #[new]
+    #[pyo3(signature = (name, content_type, stored_id))]
+    fn new(name: String, content_type: Option<String>, stored_id: String) -> Self {
+        Attachment {
+            name,
+            content_type,
+            stored_id,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Attachment(name={:?}, content_type={}, stored_id={:?})",
+            self.name,
+            match &self.content_type {
+                Some(content_type) => format!("{content_type:?}"),
+                None => "None".to_string(),
+            },
+            self.stored_id
+        )
+    }
 }
 
 #[pyclass]

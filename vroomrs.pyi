@@ -316,7 +316,30 @@ class ProfileChunk:
             int: The project ID to which the profile belongs.
         """
         ...
-    
+
+    def get_attachments(self) -> List["Attachment"]:
+        """
+        Returns the attachments related to this chunk.
+
+        Returns:
+            list[Attachment]: The attachments (e.g. a raw profile) related
+                to this chunk. Empty if no attachments are available.
+        """
+        ...
+
+    def set_attachments(self, attachments: List["Attachment"]) -> None:
+        """
+        Sets the attachments related to this chunk.
+
+        Attachments are only supported for sample chunks:
+        this is a no-op for Android chunks.
+
+        Args:
+            attachments (list[Attachment]): The attachments related to this
+                chunk, replacing any existing ones. An empty list clears them.
+        """
+        ...
+
     def get_received(self) -> float:
         """
         Returns the received timestamp.
@@ -325,7 +348,7 @@ class ProfileChunk:
             float: The received timestamp.
         """
         ...
-    
+
     def get_release(self) -> Optional[str]:
         """
         Returns the release.
@@ -459,6 +482,22 @@ class ProfileChunk:
             ...     do_something(function_metric)
         """
         ...
+
+class Attachment:
+    """
+    A file related to the chunk (e.g. a raw profile), stored in the object store.
+    """
+
+    name: str
+    """The attachment kind, e.g. `raw_profile`."""
+
+    content_type: Optional[str]
+    """The content type of the attachment, or None if not available."""
+
+    stored_id: str
+    """The object store ID of the attachment."""
+
+    def __init__(self, name: str, content_type: Optional[str], stored_id: str) -> None: ...
 
 class CallTreeFunction:
     """

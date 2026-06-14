@@ -10,7 +10,7 @@ use std::rc::Rc;
 use super::{SampleError, ThreadMetadata};
 use crate::frame::Frame;
 use crate::nodetree::Node;
-use crate::types::{CallTreeError, CallTreesStr, ChunkInterface};
+use crate::types::{Attachment, CallTreeError, CallTreesStr, ChunkInterface};
 use crate::types::{ClientSDK, DebugMeta};
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
@@ -46,6 +46,9 @@ pub struct SampleChunk {
     // `measurements` contains CPU/memory measurements we do during the capture of the chunk.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub measurements: Option<serde_json::Value>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<Attachment>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
@@ -243,6 +246,14 @@ impl ChunkInterface for SampleChunk {
         self.project_id
     }
 
+    fn get_attachments(&self) -> &[Attachment] {
+        &self.attachments
+    }
+
+    fn set_attachments(&mut self, attachments: Vec<Attachment>) {
+        self.attachments = attachments;
+    }
+
     fn get_received(&self) -> f64 {
         self.received
     }
@@ -329,6 +340,53 @@ mod tests {
         let d = &mut serde_json::Deserializer::from_slice(payload);
         let r: Result<SampleChunk, Error<_>> = serde_path_to_error::deserialize(d);
         assert!(r.is_ok(), "{r:#?}")
+    }
+
+    #[test]
+    fn test_attachments() {
+        use crate::types::Attachment;
+
+        let payload = include_bytes!("../../tests/fixtures/sample/v2/valid_cocoa.json");
+        let mut value: serde_json::Value = serde_json::from_slice(payload).unwrap();
+
+        // An absent field deserializes to an empty list,
+        // which is skipped during serialization.
+        let chunk: SampleChunk = serde_json::from_value(value.clone()).unwrap();
+        assert!(chunk.attachments.is_empty());
+        let serialized = serde_json::to_value(&chunk).unwrap();
+        assert!(serialized.get("attachments").is_none());
+
+        // A present field round-trips.
+        let attachments_json = serde_json::json!([{
+            "name": "raw_profile",
+            "content_type": "application/x-perfetto",
+            "stored_id": "aef123345"
+        }]);
+        value["attachments"] = attachments_json.clone();
+        let mut chunk: SampleChunk = serde_json::from_value(value).unwrap();
+        assert_eq!(
+            chunk.get_attachments(),
+            &[Attachment {
+                name: "raw_profile".to_string(),
+                content_type: Some("application/x-perfetto".to_string()),
+                stored_id: "aef123345".to_string(),
+            }]
+        );
+        let serialized = serde_json::to_value(&chunk).unwrap();
+        assert_eq!(serialized["attachments"], attachments_json);
+
+        // The setter overwrites and clears the list.
+        chunk.set_attachments(vec![Attachment {
+            name: "raw_profile".to_string(),
+            content_type: None,
+            stored_id: "fff999".to_string(),
+        }]);
+        assert_eq!(chunk.get_attachments()[0].stored_id, "fff999");
+        assert_eq!(chunk.get_attachments()[0].content_type, None);
+        chunk.set_attachments(Vec::new());
+        assert!(chunk.get_attachments().is_empty());
+        let serialized = serde_json::to_value(&chunk).unwrap();
+        assert!(serialized.get("attachments").is_none());
     }
 
     #[test]
