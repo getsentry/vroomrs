@@ -113,11 +113,17 @@ pub trait ChunkInterface {
 #[pyclass(eq)]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Attachment {
+    /// The name of the attachment (e.g. `raw_profile`).
     #[pyo3(get)]
     pub name: String,
+    /// The MIME content type of the attachment (e.g. `application/x-perfetto`), if known.
+    ///
+    /// Intentionally kept as a free-form string for now to stay open to new
+    /// content types; it is passed through and not interpreted within this repo.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[pyo3(get)]
     pub content_type: Option<String>,
+    /// The identifier of the attachment in the object store.
     #[pyo3(get)]
     pub stored_id: String,
 }

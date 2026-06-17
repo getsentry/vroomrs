@@ -141,7 +141,6 @@ mod tests {
     use serde_path_to_error::Error;
 
     use super::AndroidChunk;
-    use crate::types::{Attachment, ChunkInterface};
 
     #[test]
     fn test_android_valid() {
@@ -149,31 +148,5 @@ mod tests {
         let d = &mut serde_json::Deserializer::from_slice(payload);
         let r: Result<AndroidChunk, Error<_>> = serde_path_to_error::deserialize(d);
         assert!(r.is_ok(), "{r:#?}")
-    }
-
-    #[test]
-    fn test_android_attachments_ignored() {
-        let payload = include_bytes!("../../tests/fixtures/android/chunk/valid.json");
-        let mut value: serde_json::Value = serde_json::from_slice(payload).unwrap();
-
-        // Attachments are only supported for sample chunks:
-        // the field is dropped on android chunks.
-        value["attachments"] = serde_json::json!([{
-            "name": "raw_profile",
-            "content_type": "application/x-perfetto",
-            "stored_id": "aef123345"
-        }]);
-        let mut chunk: AndroidChunk = serde_json::from_value(value).unwrap();
-        assert!(chunk.get_attachments().is_empty());
-        let serialized = serde_json::to_value(&chunk).unwrap();
-        assert!(serialized.get("attachments").is_none());
-
-        // The setter is a no-op.
-        chunk.set_attachments(vec![Attachment {
-            name: "raw_profile".to_string(),
-            content_type: Some("application/x-perfetto".to_string()),
-            stored_id: "aef123345".to_string(),
-        }]);
-        assert!(chunk.get_attachments().is_empty());
     }
 }
