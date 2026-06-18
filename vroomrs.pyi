@@ -489,7 +489,7 @@ class Attachment:
     """
 
     name: str
-    """The attachment kind, e.g. `raw_profile`."""
+    """The attachment file name, e.g. `raw_profile.pftrace`."""
 
     content_type: Optional[str]
     """The content type of the attachment, or None if not available."""

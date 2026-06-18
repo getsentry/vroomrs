@@ -18,43 +18,50 @@ pub struct ProfileChunk {
 
 #[derive(serde::Deserialize)]
 struct MinimumProfile {
+    #[serde(default)]
+    platform: String,
     version: Option<String>,
+    // Present only on legacy android profiles: the raw, unparsed profile.
+    // Ignored here, we only care whether it's set.
+    sampled_profile: Option<serde::de::IgnoredAny>,
 }
 
 impl ProfileChunk {
     pub(crate) fn from_json_vec(profile: &[u8]) -> Result<Self, serde_json::Error> {
         let min_prof: MinimumProfile = serde_json::from_slice(profile)?;
-        match min_prof.version {
-            None => {
-                let android: AndroidChunk = serde_json::from_slice(profile)?;
-                Ok(ProfileChunk {
-                    profile: Box::new(android),
-                })
-            }
-            Some(_) => {
-                let sample: SampleChunk = serde_json::from_slice(profile)?;
-                Ok(ProfileChunk {
-                    profile: Box::new(sample),
-                })
-            }
-        }
+        Self::from_json_vec_with_profile(profile, &min_prof.platform, &min_prof)
     }
 
     pub(crate) fn from_json_vec_and_platform(
         profile: &[u8],
         platform: &str,
     ) -> Result<Self, serde_json::Error> {
-        match platform {
-            // Only profiles without a version use the legacy android format:
-            // android profiles with a version (e.g. "2") use the sample format,
-            // so we fall back to version-based detection.
-            "android" => Self::from_json_vec(profile),
-            _ => {
-                let sample: SampleChunk = serde_json::from_slice(profile)?;
-                Ok(ProfileChunk {
-                    profile: Box::new(sample),
-                })
-            }
+        let min_prof: MinimumProfile = serde_json::from_slice(profile)?;
+        Self::from_json_vec_with_profile(profile, platform, &min_prof)
+    }
+
+    fn from_json_vec_with_profile(
+        profile: &[u8],
+        platform: &str,
+        min_prof: &MinimumProfile,
+    ) -> Result<Self, serde_json::Error> {
+        // A chunk is a legacy android chunk when its platform is android and it
+        // either carries no version (the original legacy format) or still contains
+        // a `sampled_profile`. The latter is an interim fix: some legacy android
+        // profiles are sent with version "2" even though they don't follow the
+        // sample v2 format.
+        let is_legacy_android = platform == "android"
+            && (min_prof.version.is_none() || min_prof.sampled_profile.is_some());
+        if is_legacy_android {
+            let android: AndroidChunk = serde_json::from_slice(profile)?;
+            Ok(ProfileChunk {
+                profile: Box::new(android),
+            })
+        } else {
+            let sample: SampleChunk = serde_json::from_slice(profile)?;
+            Ok(ProfileChunk {
+                profile: Box::new(sample),
+            })
         }
     }
 
@@ -415,6 +422,29 @@ mod tests {
             .as_any()
             .downcast_ref::<AndroidChunk>()
             .is_some());
+    }
+
+    #[test]
+    fn test_legacy_android_with_sampled_profile_is_android_chunk() {
+        // Interim fix: some legacy android profiles are sent with a version
+        // (e.g. "2") even though they carry a `sampled_profile` and don't
+        // follow the sample v2 format. They must be treated as android chunks.
+        let payload = include_bytes!("../tests/fixtures/android/chunk/valid.json");
+        let mut value: serde_json::Value = serde_json::from_slice(payload).unwrap();
+        value["version"] = "2".into();
+        value["sampled_profile"] = "AAAAA".into();
+        let json = serde_json::to_vec(&value).unwrap();
+
+        for chunk in [
+            ProfileChunk::from_json_vec(&json).unwrap(),
+            ProfileChunk::from_json_vec_and_platform(&json, "android").unwrap(),
+        ] {
+            assert!(chunk
+                .profile
+                .as_any()
+                .downcast_ref::<AndroidChunk>()
+                .is_some());
+        }
     }
 
     #[test]

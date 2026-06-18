@@ -113,7 +113,7 @@ pub trait ChunkInterface {
 #[pyclass(eq)]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Attachment {
-    /// The name of the attachment (e.g. `raw_profile`).
+    /// The attachment file name, e.g. `raw_profile.pftrace`.
     #[pyo3(get)]
     pub name: String,
     /// The MIME content type of the attachment (e.g. `application/x-perfetto`), if known.
