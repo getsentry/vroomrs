@@ -10,6 +10,9 @@ use crate::{
     utils::{compress_lz4, decompress_lz4},
 };
 
+/// Version of profile chunks in the legacy android trace format.
+pub(crate) const ANDROID_TRACE_FORMAT_VERSION: &str = "2.android-trace";
+
 /// This is a :class:`ProfileChunk` class
 #[pyclass]
 pub struct ProfileChunk {
@@ -24,8 +27,11 @@ struct MinimumProfile {
 impl ProfileChunk {
     pub(crate) fn from_json_vec(profile: &[u8]) -> Result<Self, serde_json::Error> {
         let min_prof: MinimumProfile = serde_json::from_slice(profile)?;
-        match min_prof.version {
-            None => {
+        match min_prof.version.as_deref() {
+            // Legacy android trace format chunks were originally sent
+            // without a version (deserialized to an empty string in vroom),
+            // newer ones carry an explicit version.
+            None | Some("") | Some(ANDROID_TRACE_FORMAT_VERSION) => {
                 let android: AndroidChunk = serde_json::from_slice(profile)?;
                 Ok(ProfileChunk {
                     profile: Box::new(android),
@@ -40,6 +46,31 @@ impl ProfileChunk {
         }
     }
 
+    pub(crate) fn from_json_vec_and_version(
+        profile: &[u8],
+        version: &str,
+    ) -> Result<Self, serde_json::Error> {
+        match version {
+            // As a fallback to the legacy behavior, an empty version
+            // is treated as the android trace format as well.
+            "" | ANDROID_TRACE_FORMAT_VERSION => {
+                let android: AndroidChunk = serde_json::from_slice(profile)?;
+                Ok(ProfileChunk {
+                    profile: Box::new(android),
+                })
+            }
+            _ => {
+                let sample: SampleChunk = serde_json::from_slice(profile)?;
+                Ok(ProfileChunk {
+                    profile: Box::new(sample),
+                })
+            }
+        }
+    }
+
+    #[deprecated(
+        note = "the platform alone cannot distinguish the legacy android trace format from sample v2, use `from_json_vec_and_version` instead"
+    )]
     pub(crate) fn from_json_vec_and_platform(
         profile: &[u8],
         platform: &str,
@@ -332,33 +363,61 @@ mod tests {
         struct TestStruct {
             name: String,
             profile_json: &'static [u8],
-            want: String,
+            want_platform: String,
+            want_android_chunk: bool,
         }
 
         let test_cases = [
             TestStruct {
                 name: "cocoa profile".to_string(),
                 profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_cocoa.json"),
-                want: "cocoa".to_string(),
+                want_platform: "cocoa".to_string(),
+                want_android_chunk: false,
             },
             TestStruct {
                 name: "python profile".to_string(),
                 profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_python.json"),
-                want: "python".to_string(),
+                want_platform: "python".to_string(),
+                want_android_chunk: false,
             },
             TestStruct {
-                name: "android profile".to_string(),
+                name: "android profile (sample v2)".to_string(),
+                profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_android.json"),
+                want_platform: "android".to_string(),
+                want_android_chunk: false,
+            },
+            TestStruct {
+                name: "android profile (legacy trace format without version)".to_string(),
                 profile_json: include_bytes!("../tests/fixtures/android/chunk/valid.json"),
-                want: "android".to_string(),
+                want_platform: "android".to_string(),
+                want_android_chunk: true,
+            },
+            TestStruct {
+                name: "android profile (legacy trace format with version)".to_string(),
+                profile_json: include_bytes!(
+                    "../tests/fixtures/android/chunk/valid_2_android_trace.json"
+                ),
+                want_platform: "android".to_string(),
+                want_android_chunk: true,
             },
         ];
 
         for test in test_cases {
             let prof = ProfileChunk::from_json_vec(test.profile_json);
             assert!(prof.is_ok());
+            let prof = prof.unwrap();
             assert_eq!(
-                prof.unwrap().get_platform(),
-                test.want,
+                prof.get_platform(),
+                test.want_platform,
+                "test `{}` failed",
+                test.name
+            );
+            assert_eq!(
+                prof.profile
+                    .as_any()
+                    .downcast_ref::<AndroidChunk>()
+                    .is_some(),
+                test.want_android_chunk,
                 "test `{}` failed",
                 test.name
             )
@@ -366,6 +425,96 @@ mod tests {
     }
 
     #[test]
+    fn test_from_json_vec_and_version() {
+        struct TestStruct<'a> {
+            name: String,
+            version: &'a str,
+            profile_json: &'static [u8],
+            want_platform: String,
+            want_android_chunk: bool,
+        }
+
+        let test_cases = [
+            TestStruct {
+                name: "cocoa profile".to_string(),
+                version: "2",
+                profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_cocoa.json"),
+                want_platform: "cocoa".to_string(),
+                want_android_chunk: false,
+            },
+            TestStruct {
+                name: "python profile".to_string(),
+                version: "2",
+                profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_python.json"),
+                want_platform: "python".to_string(),
+                want_android_chunk: false,
+            },
+            TestStruct {
+                name: "android profile (sample v2)".to_string(),
+                version: "2",
+                profile_json: include_bytes!("../tests/fixtures/sample/v2/valid_android.json"),
+                want_platform: "android".to_string(),
+                want_android_chunk: false,
+            },
+            TestStruct {
+                name: "android profile (legacy trace format)".to_string(),
+                version: "2.android-trace",
+                profile_json: include_bytes!(
+                    "../tests/fixtures/android/chunk/valid_2_android_trace.json"
+                ),
+                want_platform: "android".to_string(),
+                want_android_chunk: true,
+            },
+            TestStruct {
+                name: "android profile (legacy trace format with empty version)".to_string(),
+                version: "",
+                profile_json: include_bytes!("../tests/fixtures/android/chunk/valid.json"),
+                want_platform: "android".to_string(),
+                want_android_chunk: true,
+            },
+        ];
+
+        for test in test_cases {
+            let prof = ProfileChunk::from_json_vec_and_version(test.profile_json, test.version);
+            assert!(prof.is_ok());
+            let prof = prof.unwrap();
+            assert_eq!(
+                prof.get_platform(),
+                test.want_platform,
+                "test `{}` failed",
+                test.name
+            );
+            assert_eq!(
+                prof.profile
+                    .as_any()
+                    .downcast_ref::<AndroidChunk>()
+                    .is_some(),
+                test.want_android_chunk,
+                "test `{}` failed",
+                test.name
+            )
+        }
+    }
+
+    #[test]
+    fn test_from_json_vec_empty_version() {
+        let mut payload: serde_json::Value =
+            serde_json::from_slice(include_bytes!("../tests/fixtures/android/chunk/valid.json"))
+                .unwrap();
+        payload["version"] = serde_json::Value::String("".to_string());
+        let profile_json = serde_json::to_vec(&payload).unwrap();
+
+        let prof = ProfileChunk::from_json_vec(&profile_json).unwrap();
+        assert_eq!(prof.get_platform(), "android");
+        assert!(prof
+            .profile
+            .as_any()
+            .downcast_ref::<AndroidChunk>()
+            .is_some());
+    }
+
+    #[test]
+    #[allow(deprecated)]
     fn test_from_json_vec_and_platform() {
         struct TestStruct<'a> {
             name: String,
@@ -424,8 +573,18 @@ mod tests {
                 payload: include_bytes!("../tests/fixtures/sample/v2/valid_python.json"),
             },
             TestStruct {
+                name: "compressing and decompressing android (V2)".to_string(),
+                payload: include_bytes!("../tests/fixtures/sample/v2/valid_android.json"),
+            },
+            TestStruct {
                 name: "compressing and decompressing android chunk".to_string(),
                 payload: include_bytes!("../tests/fixtures/android/chunk/valid.json"),
+            },
+            TestStruct {
+                name: "compressing and decompressing android chunk with version".to_string(),
+                payload: include_bytes!(
+                    "../tests/fixtures/android/chunk/valid_2_android_trace.json"
+                ),
             },
         ];
 
@@ -436,18 +595,15 @@ mod tests {
             let decompressed_profile =
                 ProfileChunk::decompress(compressed_profile_bytes.as_slice()).unwrap();
 
-            let equals = if profile.get_platform().as_str() == "android" {
-                let original_sample = profile
+            let equals = if let Some(original_android) =
+                profile.profile.as_any().downcast_ref::<AndroidChunk>()
+            {
+                let final_android = decompressed_profile
                     .profile
                     .as_any()
                     .downcast_ref::<AndroidChunk>()
                     .unwrap();
-                let final_sample = decompressed_profile
-                    .profile
-                    .as_any()
-                    .downcast_ref::<AndroidChunk>()
-                    .unwrap();
-                original_sample == final_sample
+                original_android == final_android
             } else {
                 let original_sample = profile
                     .profile

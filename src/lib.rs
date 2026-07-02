@@ -23,10 +23,18 @@ const MAX_STACK_DEPTH: u64 = 128;
 /// profile : str
 ///   A profile serialized as json string
 ///
-///     platform (string): An optional string representing the profile platform.
+///     platform (string): Deprecated, use `version` instead.
+///         An optional string representing the profile platform.
+///         The platform alone cannot distinguish the legacy android trace
+///         format from sample v2, so it's only used when `version` is not
+///         provided.
+///
+///     version (string): An optional string representing the profile version.
 ///         If provided, we can directly deserialize to the right profile chunk
-///         more efficiently.
-///         If the platform is known at the time this function is invoked, it's
+///         more efficiently ("2.android-trace" and, as a fallback to the
+///         legacy behavior, an empty string map to the legacy android trace
+///         format, any other version to the sample v2 format).
+///         If the version is known at the time this function is invoked, it's
 ///         recommended to always pass it.
 ///
 /// Returns
@@ -40,12 +48,21 @@ const MAX_STACK_DEPTH: u64 = 128;
 ///     If an error occurs during the extraction process.
 ///
 #[pyfunction]
-#[pyo3(signature = (profile, platform=None))]
-fn profile_chunk_from_json_str(profile: &str, platform: Option<&str>) -> PyResult<ProfileChunk> {
-    match platform {
-        Some(platform) => ProfileChunk::from_json_vec_and_platform(profile.as_bytes(), platform)
+#[pyo3(signature = (profile, platform=None, version=None))]
+fn profile_chunk_from_json_str(
+    profile: &str,
+    platform: Option<&str>,
+    version: Option<&str>,
+) -> PyResult<ProfileChunk> {
+    match (version, platform) {
+        (Some(version), _) => ProfileChunk::from_json_vec_and_version(profile.as_bytes(), version)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
-        None => ProfileChunk::from_json_vec(profile.as_bytes())
+        #[allow(deprecated)]
+        (None, Some(platform)) => {
+            ProfileChunk::from_json_vec_and_platform(profile.as_bytes(), platform)
+                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+        }
+        (None, None) => ProfileChunk::from_json_vec(profile.as_bytes())
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string())),
     }
 }
