@@ -29,8 +29,7 @@ impl ProfileChunk {
         let min_prof: MinimumProfile = serde_json::from_slice(profile)?;
         match min_prof.version.as_deref() {
             // Legacy android trace format chunks were originally sent
-            // without a version (deserialized to an empty string in vroom),
-            // newer ones carry an explicit version.
+            // without a version, newer ones carry an explicit version.
             None | Some("") | Some(ANDROID_TRACE_FORMAT_VERSION) => {
                 let android: AndroidChunk = serde_json::from_slice(profile)?;
                 Ok(ProfileChunk {

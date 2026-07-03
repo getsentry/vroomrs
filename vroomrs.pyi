@@ -895,10 +895,15 @@ class Metadata:
     """The version name of the application, or None if not available."""
 
 def profile_chunk_from_json_str(
-    profile: str, platform: Optional[str] = None, version: Optional[str] = None
+    profile: str, platform: Optional[str] = None
 ) -> ProfileChunk:
     """
     Returns a `ProfileChunk` instance from a json string
+
+    .. deprecated::
+        The platform alone cannot distinguish the legacy android trace format
+        from sample v2. Use `profile_chunk_from_json_str_and_version` instead
+        whenever the profile version is known.
 
     Arguments
     ---------
@@ -906,20 +911,42 @@ def profile_chunk_from_json_str(
        A profile serialized as json string
 
     platform : Optional[str]
-       Deprecated, use `version` instead.
        An optional string representing the profile platform.
-       The platform alone cannot distinguish the legacy android trace
-       format from sample v2, so it's only used when `version` is not
-       provided.
-
-    version : Optional[str]
-       An optional string representing the profile version.
        If provided, we can directly deserialize to the right profile chunk
-       more efficiently ("2.android-trace" and, as a fallback to the
-       legacy behavior, an empty string map to the legacy android trace
-       format, any other version to the sample v2 format).
-       If the version is known at the time this function is invoked, it's
+       more efficiently.
+       If the platform is known at the time this function is invoked, it's
        recommended to always pass it.
+
+    Returns
+    -------
+    ProfileChunk
+      A `ProfileChunk` instance
+
+    Raises
+    ------
+    Exception
+        If an error occurs during the extraction process.
+    """
+    ...
+
+def profile_chunk_from_json_str_and_version(
+    profile: str, version: str
+) -> ProfileChunk:
+    """
+    Returns a `ProfileChunk` instance from a json string, using the profile
+    version to select the right format.
+
+    Arguments
+    ---------
+    profile : str
+       A profile serialized as json string
+
+    version : str
+       A string representing the profile version. It is used to directly
+       deserialize to the right profile chunk more efficiently
+       ("2.android-trace" and, as a fallback to the legacy behavior, an empty
+       string map to the legacy android trace format, any other version to the
+       sample v2 format).
 
     Returns
     -------
