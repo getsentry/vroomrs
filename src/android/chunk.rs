@@ -26,8 +26,6 @@ pub struct AndroidChunk {
     #[serde(skip_serializing_if = "Option::is_none")]
     release: Option<String>,
     timestamp: f64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    version: Option<String>,
 
     profile: Android,
     measurements: Option<serde_json::Value>,
