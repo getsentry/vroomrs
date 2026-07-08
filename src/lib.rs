@@ -27,12 +27,12 @@ const MAX_STACK_DEPTH: u64 = 128;
 /// ---------
 /// profile : str
 ///   A profile serialized as json string
-///
-///     platform (string): An optional string representing the profile platform.
-///         If provided, we can directly deserialize to the right profile chunk
-///         more efficiently.
-///         If the platform is known at the time this function is invoked, it's
-///         recommended to always pass it.
+/// platform : Optional[str]
+///   An optional string representing the profile platform.
+///   If provided, we can directly deserialize to the right profile chunk
+///   more efficiently.
+///   If the platform is known at the time this function is invoked, it's
+///   recommended to always pass it.
 ///
 /// Returns
 /// -------
@@ -63,12 +63,11 @@ fn profile_chunk_from_json_str(profile: &str, platform: Option<&str>) -> PyResul
 /// ---------
 /// profile : str
 ///   A profile serialized as json string
-///
-///     version (string): A string representing the profile version. It is used
-///         to directly deserialize to the right profile chunk more efficiently
-///         ("2.android-trace" and, as a fallback to the legacy behavior, an
-///         empty string map to the legacy android trace format, any other
-///         version to the sample v2 format).
+/// version : str
+///   A string representing the profile version. It is used to directly
+///   deserialize to the right profile chunk more efficiently ("2.android-trace"
+///   and, as a fallback to the legacy behavior, an empty string map to the
+///   legacy android trace format, any other version to the sample v2 format).
 ///
 /// Returns
 /// -------
@@ -92,12 +91,12 @@ fn profile_chunk_from_json_str_and_version(profile: &str, version: &str) -> PyRe
 /// ---------
 /// profile : str
 ///   A profile serialized as json string
-///
-///     platform (string): An optional string representing the profile platform.
-///         If provided, we can directly deserialize to the right profile more
-///         efficiently.
-///         If the platform is known at the time this function is invoked, it's
-///         recommended to always pass it.
+/// platform : Optional[str]
+///   An optional string representing the profile platform.
+///   If provided, we can directly deserialize to the right profile more
+///   efficiently.
+///   If the platform is known at the time this function is invoked, it's
+///   recommended to always pass it.
 ///
 /// Returns
 /// -------
