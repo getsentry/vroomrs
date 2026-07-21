@@ -68,6 +68,46 @@ pub struct Frame {
     pub is_react_native: bool,
 }
 
+/// Determines whether an android frame's package points at an OS/runtime
+/// location. Package paths appear both with and without a leading slash (e.g.
+/// "system/lib64/libhwui.so" and "/system/..."), so we strip one before matching.
+pub(crate) fn is_android_system_package(package: &str) -> bool {
+    let norm = package.strip_prefix('/').unwrap_or(package);
+    norm.starts_with("system/")
+        || norm.starts_with("vendor/")
+        || norm.starts_with("apex/")
+        || package == "[vdso]"
+        || package == "[stack]"
+        || package.starts_with("[anon:dalvik-")
+}
+
+/// Platform, runtime and SDK class-name namespaces for android/JVM frames. A
+/// frame whose class (module) starts with one of these is a system frame;
+/// everything else — the app's own code and its bundled libraries are application code.
+/// `io.sentry.` is our own instrumentation, treated as
+/// system, like we do for python and cocoa.
+const ANDROID_SYSTEM_MODULE_PREFIXES: &[&str] = &[
+    "java.",
+    "javax.",
+    "kotlin.",
+    "kotlinx.",
+    "android.",
+    "com.android.",
+    "dalvik.",
+    "libcore.",
+    "sun.",
+    "jdk.",
+    "io.sentry.",
+];
+
+/// Determines whether an android/JVM class name belongs to a platform, runtime
+/// or SDK namespace (i.e. not the application's own code).
+pub(crate) fn is_android_system_module(name: &str) -> bool {
+    ANDROID_SYSTEM_MODULE_PREFIXES
+        .iter()
+        .any(|prefix| name.starts_with(prefix))
+}
+
 /// Determines whether the image represents that of the application
 /// binary (or a binary embedded in the application binary) by checking its package path.
 pub fn is_cocoa_application_package(p: &str) -> bool {
@@ -239,6 +279,38 @@ impl Frame {
             .is_none_or(|path| !path.contains("/vendor/"))
     }
 
+    fn is_android_application_frame(&self) -> bool {
+        if self
+            .package
+            .as_deref()
+            .is_some_and(is_android_system_package)
+        {
+            return false;
+        }
+
+        let symbol = self
+            .module
+            .as_deref()
+            .filter(|m| !m.is_empty())
+            .or(self.function.as_deref())
+            .unwrap_or_default();
+        !is_android_system_module(symbol)
+    }
+
+    /// Whether the frame is synthetic noise that's dropped from android profiles,
+    /// mirroring sentry-java's TombstoneParser:
+    /// - ART runtime/interpreter frames (libart.so), not actionable for developers.
+    /// - anonymous VMA frames with no function name, which can't be symbolicated
+    ///   and have no value in themselves.
+    pub(crate) fn is_synthetic_android_frame(&self) -> bool {
+        let Some(package) = self.package.as_deref() else {
+            return false;
+        };
+        package.ends_with("libart.so")
+            || (package.starts_with("<anonymous")
+                && self.function.as_deref().is_none_or(str::is_empty))
+    }
+
     fn set_in_app(&mut self, p: &str) {
         // for react-native the in_app field seems to be messed up most of the times,
         // with system libraries and other frames that are clearly system frames
@@ -259,6 +331,9 @@ impl Frame {
             "rust" => self.is_rust_application_frame(),
             "python" => self.is_python_application_frame(),
             "php" => self.is_php_application_frame(),
+            "java" | "native" | "android" if p == "android" => self
+                .in_app
+                .unwrap_or_else(|| self.is_android_application_frame()),
             _ => false,
         };
 
@@ -877,5 +952,345 @@ mod tests {
                 test_case.name, s1, s2
             );
         }
+    }
+
+    #[test]
+    fn test_is_android_application_frame_by_package() {
+        struct TestStruct {
+            name: String,
+            frame: Frame,
+            is_application: bool,
+        }
+
+        // Native/library frames are classified by their package location.
+        let test_cases = vec![
+            TestStruct {
+                name: "no package -> unresolved, application".to_string(),
+                frame: Frame {
+                    ..Default::default()
+                },
+                is_application: true,
+            },
+            TestStruct {
+                name: "empty package -> application".to_string(),
+                frame: Frame {
+                    package: Some("".to_string()),
+                    ..Default::default()
+                },
+                is_application: true,
+            },
+            TestStruct {
+                name: "system lib".to_string(),
+                frame: Frame {
+                    package: Some("system/lib64/libhwui.so".to_string()),
+                    ..Default::default()
+                },
+                is_application: false,
+            },
+            TestStruct {
+                name: "system framework jar with leading slash".to_string(),
+                frame: Frame {
+                    package: Some("/system/framework/framework.jar".to_string()),
+                    ..Default::default()
+                },
+                is_application: false,
+            },
+            TestStruct {
+                name: "vendor lib".to_string(),
+                frame: Frame {
+                    package: Some("vendor/lib64/libGLESv2_enc.so".to_string()),
+                    ..Default::default()
+                },
+                is_application: false,
+            },
+            TestStruct {
+                name: "apex runtime lib".to_string(),
+                frame: Frame {
+                    package: Some("apex/com.android.runtime/lib64/bionic/libc.so".to_string()),
+                    ..Default::default()
+                },
+                is_application: false,
+            },
+            TestStruct {
+                name: "vdso".to_string(),
+                frame: Frame {
+                    package: Some("[vdso]".to_string()),
+                    ..Default::default()
+                },
+                is_application: false,
+            },
+            TestStruct {
+                name: "dalvik heap region".to_string(),
+                frame: Frame {
+                    package: Some("[anon:dalvik-LinearAlloc]".to_string()),
+                    ..Default::default()
+                },
+                is_application: false,
+            },
+        ];
+        for test_case in test_cases {
+            let is_app = test_case.frame.is_android_application_frame();
+            assert_eq!(
+                is_app, test_case.is_application,
+                "test: {}\nexpected: {} - got: {}",
+                test_case.name, test_case.is_application, is_app
+            );
+        }
+    }
+
+    #[test]
+    fn test_is_android_application_frame_by_module() {
+        struct TestStruct {
+            name: String,
+            frame: Frame,
+            is_application: bool,
+        }
+
+        // JVM frames are classified by their class namespace, taken from `module`
+        // (or `function` when the module is absent, e.g. deobfuscated frames). The
+        // JIT code cache package must not sway the result.
+        let jit = "[anon_shmem:dalvik-jit-code-cache]";
+        let by_module = |module: &str| Frame {
+            package: Some(jit.to_string()),
+            module: Some(module.to_string()),
+            ..Default::default()
+        };
+        let by_function = |function: &str| Frame {
+            function: Some(function.to_string()),
+            ..Default::default()
+        };
+
+        let test_cases = vec![
+            // platform / runtime / stdlib -> system
+            TestStruct {
+                name: "java stdlib".to_string(),
+                frame: by_module("java.util.HashMap"),
+                is_application: false,
+            },
+            TestStruct {
+                name: "android platform".to_string(),
+                frame: by_module("android.view.View"),
+                is_application: false,
+            },
+            TestStruct {
+                name: "com.android internal".to_string(),
+                frame: by_module("com.android.internal.os.ZygoteInit"),
+                is_application: false,
+            },
+            TestStruct {
+                name: "libcore".to_string(),
+                frame: by_module("libcore.io.Linux"),
+                is_application: false,
+            },
+            TestStruct {
+                name: "sun".to_string(),
+                frame: by_module("sun.nio.ch.FileChannelImpl"),
+                is_application: false,
+            },
+            TestStruct {
+                name: "kotlin stdlib".to_string(),
+                frame: by_module("kotlin.collections.ArraysKt"),
+                is_application: false,
+            },
+            // the Sentry SDK is our own instrumentation -> system
+            TestStruct {
+                name: "sentry sdk".to_string(),
+                frame: by_module("io.sentry.transport.AsyncHttpTransport"),
+                is_application: false,
+            },
+            // the app and its bundled libraries (androidx, third-party) -> application
+            TestStruct {
+                name: "app code".to_string(),
+                frame: by_module("com.example.MainActivity"),
+                is_application: true,
+            },
+            TestStruct {
+                name: "androidx ships with the app".to_string(),
+                frame: by_module("androidx.recyclerview.widget.RecyclerView"),
+                is_application: true,
+            },
+            TestStruct {
+                name: "bundled gson".to_string(),
+                frame: by_module("com.google.gson.Gson"),
+                is_application: true,
+            },
+            TestStruct {
+                name: "bundled rxjava".to_string(),
+                frame: by_module("rx.internal.operators.OperatorMap"),
+                is_application: true,
+            },
+            // FQN in `function` when `module` is absent (deobfuscated frames)
+            TestStruct {
+                name: "system fqn in function".to_string(),
+                frame: by_function("android.os.Handler.dispatchMessage"),
+                is_application: false,
+            },
+            TestStruct {
+                name: "app fqn in function".to_string(),
+                frame: by_function("com.example.HomeActivity.onCreate"),
+                is_application: true,
+            },
+            // A bare method name (no namespace, e.g. an unattributed native
+            // symbol) matches no system prefix and defaults to application.
+            TestStruct {
+                name: "bare method name in function".to_string(),
+                frame: by_function("malloc"),
+                is_application: true,
+            },
+        ];
+        for test_case in test_cases {
+            let is_app = test_case.frame.is_android_application_frame();
+            assert_eq!(
+                is_app, test_case.is_application,
+                "test: {}\nexpected: {} - got: {}",
+                test_case.name, test_case.is_application, is_app
+            );
+        }
+    }
+
+    #[test]
+    fn test_is_synthetic_android_frame() {
+        struct TestStruct {
+            name: String,
+            frame: Frame,
+            is_synthetic: bool,
+        }
+
+        let test_cases = vec![
+            TestStruct {
+                name: "libart runtime".to_string(),
+                frame: Frame {
+                    package: Some("apex/com.android.art/lib64/libart.so".to_string()),
+                    ..Default::default()
+                },
+                is_synthetic: true,
+            },
+            TestStruct {
+                name: "libart with leading slash".to_string(),
+                frame: Frame {
+                    package: Some("/apex/com.android.art/lib64/libart.so".to_string()),
+                    ..Default::default()
+                },
+                is_synthetic: true,
+            },
+            TestStruct {
+                name: "other lib in the art apex".to_string(),
+                frame: Frame {
+                    package: Some("apex/com.android.art/lib64/libjavacore.so".to_string()),
+                    ..Default::default()
+                },
+                is_synthetic: false,
+            },
+            TestStruct {
+                name: "unrelated system lib".to_string(),
+                frame: Frame {
+                    package: Some("system/lib64/libhwui.so".to_string()),
+                    ..Default::default()
+                },
+                is_synthetic: false,
+            },
+            TestStruct {
+                name: "anonymous VMA without a function name".to_string(),
+                frame: Frame {
+                    package: Some("<anonymous:7f8a0000>".to_string()),
+                    ..Default::default()
+                },
+                is_synthetic: true,
+            },
+            TestStruct {
+                name: "anonymous VMA with an empty function name".to_string(),
+                frame: Frame {
+                    package: Some("<anonymous:7f8a0000>".to_string()),
+                    function: Some("".to_string()),
+                    ..Default::default()
+                },
+                is_synthetic: true,
+            },
+            TestStruct {
+                name: "anonymous VMA with a resolved function name".to_string(),
+                frame: Frame {
+                    package: Some("<anonymous:7f8a0000>".to_string()),
+                    function: Some("doWork".to_string()),
+                    ..Default::default()
+                },
+                is_synthetic: false,
+            },
+            TestStruct {
+                name: "no package".to_string(),
+                frame: Frame {
+                    ..Default::default()
+                },
+                is_synthetic: false,
+            },
+        ];
+        for test_case in test_cases {
+            let is_synthetic = test_case.frame.is_synthetic_android_frame();
+            assert_eq!(
+                is_synthetic, test_case.is_synthetic,
+                "test: {}\nexpected: {} - got: {}",
+                test_case.name, test_case.is_synthetic, is_synthetic
+            );
+        }
+    }
+
+    #[test]
+    fn test_set_in_app_android_computes_when_absent() {
+        // When in_app is absent, set_in_app populates it from the package/module.
+        // Native frames are classified by their package.
+        let mut sys = Frame {
+            platform: Some("native".to_string()),
+            package: Some("system/lib64/libhwui.so".to_string()),
+            ..Default::default()
+        };
+        sys.normalize("android");
+        assert_eq!(sys.in_app, Some(false));
+
+        // Untyped frames (platform absent) default to the "android" platform and
+        // are still classified — this is how relay delivers JVM frames.
+        let mut untyped_app = Frame {
+            function: Some("com.example.MainActivity.onCreate".to_string()),
+            ..Default::default()
+        };
+        untyped_app.normalize("android");
+        assert_eq!(untyped_app.in_app, Some(true));
+
+        let mut untyped_sys = Frame {
+            module: Some("android.os.Handler".to_string()),
+            ..Default::default()
+        };
+        untyped_sys.normalize("android");
+        assert_eq!(untyped_sys.in_app, Some(false));
+
+        // JVM frames ("java") are classified by their class module.
+        let mut framework = Frame {
+            platform: Some("java".to_string()),
+            module: Some("android.os.Handler".to_string()),
+            ..Default::default()
+        };
+        framework.normalize("android");
+        assert_eq!(framework.in_app, Some(false));
+    }
+
+    #[test]
+    fn test_set_in_app_android_preserves_existing_in_app() {
+        // Relay already computes in_app; an existing value is trusted and never
+        // overridden, mirroring the legacy android format (in_app.or_else(compute)).
+        // This holds even when our own rules would classify the frame differently.
+        let mut app = Frame {
+            platform: Some("native".to_string()),
+            function: Some("com.example.MainActivity.onCreate".to_string()),
+            in_app: Some(false), // our rules would say true, but relay wins
+            ..Default::default()
+        };
+        app.normalize("android");
+        assert_eq!(app.in_app, Some(false));
+
+        let mut sys = Frame {
+            module: Some("android.os.Handler".to_string()),
+            in_app: Some(true), // our rules would say false, but relay wins
+            ..Default::default()
+        };
+        sys.normalize("android");
+        assert_eq!(sys.in_app, Some(true));
     }
 }
