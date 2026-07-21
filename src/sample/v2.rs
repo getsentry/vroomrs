@@ -58,6 +58,48 @@ pub struct SampleData {
 }
 
 impl SampleData {
+    /// Drops synthetic android frames (ART runtime, unsymbolicatable anonymous
+    /// frames) and re-indexes the stacks that reference them, compacting both
+    /// vectors in place. Samples reference stacks by id, so they're unaffected.
+    fn trim_android_stacks(&mut self) {
+        let mut next_index: i32 = 0;
+        // format: index_map[old_index] -> new_index or None if synthetic
+        let index_map: Vec<Option<i32>> = self
+            .frames
+            .iter()
+            .map(|frame| {
+                if frame.is_synthetic_android_frame() {
+                    None
+                } else {
+                    let index = next_index;
+                    next_index += 1;
+                    Some(index)
+                }
+            })
+            .collect();
+
+        if next_index as usize == self.frames.len() {
+            return; // no synthetic frames present
+        }
+
+        // Drop synthetic frames from stacks
+        for stack in &mut self.stacks {
+            stack.retain_mut(|id| match index_map.get(*id as usize) {
+                Some(Some(new_index)) => {
+                    *id = *new_index;
+                    true
+                }
+                Some(None) => false,
+                None => true, // out of range; leave for call_trees to reject
+            });
+        }
+
+        // Drop the synthetic frames themselves in-place.
+        let mut frame_indices = index_map.iter();
+        self.frames
+            .retain(|_| frame_indices.next().unwrap().is_some());
+    }
+
     fn trim_python_stacks(&mut self) {
         // Find the module frame index in frames
         let module_frame_index = self.frames.iter().position(|f| {
@@ -211,6 +253,9 @@ impl ChunkInterface for SampleChunk {
     }
 
     fn normalize(&mut self) {
+        if self.platform.as_str() == "android" {
+            self.profile.trim_android_stacks();
+        }
         for frame in &mut self.profile.frames {
             frame.normalize(&self.platform);
         }
@@ -677,5 +722,142 @@ mod tests {
             test.chunk.normalize();
             assert_eq!(test.chunk, test.want, "test `{}` failed", test.name);
         }
+    }
+
+    #[test]
+    fn test_trim_android_stacks() {
+        let art = |p: &str| Frame {
+            package: Some(p.to_string()),
+            ..Default::default()
+        };
+        let named = |f: &str| Frame {
+            function: Some(f.to_string()),
+            ..Default::default()
+        };
+
+        let sample = |stack_id: i32| Sample {
+            stack_id,
+            thread_id: "1".to_string(),
+            timestamp: 0.0,
+        };
+
+        let mut data = SampleData {
+            frames: vec![
+                named("app"),                                 // 0 -> 0
+                art("apex/com.android.art/lib64/libart.so"),  // 1 dropped
+                art("system/lib64/libhwui.so"),               // 2 -> 1 (not ART)
+                art("/apex/com.android.art/lib64/libart.so"), // 3 dropped
+                named("app2"),                                // 4 -> 2
+            ],
+            // Samples reference stacks by id, which trimming must not touch.
+            samples: vec![sample(0), sample(1), sample(2)],
+            stacks: vec![vec![0, 1, 2, 3, 4], vec![1, 3], vec![2]],
+            thread_metadata: None,
+        };
+
+        data.trim_android_stacks();
+
+        assert_eq!(
+            data.frames
+                .iter()
+                .map(|f| f.function.clone())
+                .collect::<Vec<_>>(),
+            vec![Some("app".to_string()), None, Some("app2".to_string())]
+        );
+        // ART frames vanish from stacks; the all-ART stack becomes empty.
+        assert_eq!(data.stacks, vec![vec![0, 1, 2], vec![], vec![1]]);
+        // Stack ids on samples are untouched.
+        assert_eq!(
+            data.samples.iter().map(|s| s.stack_id).collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
+    }
+
+    #[test]
+    fn test_trim_android_stacks_noop() {
+        let mut data = SampleData {
+            frames: vec![
+                Frame {
+                    function: Some("app".to_string()),
+                    ..Default::default()
+                },
+                Frame {
+                    package: Some("system/lib64/libhwui.so".to_string()),
+                    ..Default::default()
+                },
+            ],
+            samples: vec![],
+            stacks: vec![vec![0, 1]],
+            thread_metadata: None,
+        };
+
+        data.trim_android_stacks();
+
+        assert_eq!(data.frames.len(), 2);
+        assert_eq!(data.stacks, vec![vec![0, 1]]);
+    }
+
+    #[test]
+    fn test_trim_android_stacks_out_of_range_id_does_not_panic() {
+        // A malformed profile may reference a frame id that is out of range.
+        // Trimming must not panic; the stray reference is left in place for
+        // `call_trees` to reject as an invalid frame id.
+        let mut data = SampleData {
+            frames: vec![
+                Frame {
+                    function: Some("app".to_string()),
+                    ..Default::default()
+                },
+                Frame {
+                    package: Some("apex/com.android.art/lib64/libart.so".to_string()),
+                    ..Default::default()
+                },
+            ],
+            samples: vec![],
+            // id 2 and 99 are out of range; id 1 references the dropped ART frame.
+            stacks: vec![vec![0, 1, 2], vec![99]],
+            thread_metadata: None,
+        };
+
+        data.trim_android_stacks();
+
+        assert_eq!(data.frames.len(), 1);
+        // ART reference removed, in-range survivor kept, out-of-range ids preserved.
+        assert_eq!(data.stacks, vec![vec![0, 2], vec![99]]);
+    }
+
+    #[test]
+    fn test_normalize_only_trims_android() {
+        // A libart.so frame is synthetic on android, but the trimming is gated
+        // on the chunk platform: a non-android chunk must keep every frame.
+        let make_chunk = |platform: &str| SampleChunk {
+            platform: platform.to_string(),
+            profile: SampleData {
+                frames: vec![
+                    Frame {
+                        function: Some("app".to_string()),
+                        ..Default::default()
+                    },
+                    Frame {
+                        package: Some("apex/com.android.art/lib64/libart.so".to_string()),
+                        ..Default::default()
+                    },
+                ],
+                samples: vec![],
+                stacks: vec![vec![0, 1]],
+                thread_metadata: None,
+            },
+            ..Default::default()
+        };
+
+        let mut android = make_chunk("android");
+        android.normalize();
+        assert_eq!(android.profile.frames.len(), 1);
+        assert_eq!(android.profile.stacks, vec![vec![0]]);
+
+        let mut cocoa = make_chunk("cocoa");
+        cocoa.normalize();
+        assert_eq!(cocoa.profile.frames.len(), 2);
+        assert_eq!(cocoa.profile.stacks, vec![vec![0, 1]]);
     }
 }
