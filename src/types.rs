@@ -107,7 +107,7 @@ pub trait ChunkInterface {
     fn as_any(&self) -> &dyn Any;
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct Transaction {
     #[pyo3(get)]
@@ -167,7 +167,7 @@ pub struct TransactionMetadata {
     pub segment_id: Option<String>,
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Metadata {
     #[pyo3(get)]

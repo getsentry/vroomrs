@@ -57,7 +57,7 @@ pub struct StackTrace {
     pub frames: Vec<frame::Frame>,
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Debug, Serialize, Clone, Default, PartialEq)]
 pub struct Evidence {
     pub name: String,
@@ -95,7 +95,7 @@ impl Evidence {
     }
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Debug, Serialize, PartialEq, Default, Clone)]
 pub struct EvidenceData {
     frame_duration_ns: u64,
@@ -203,7 +203,7 @@ impl EvidenceData {
     }
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Debug, Clone, Serialize, PartialEq, Default)]
 pub struct Occurrence {
     pub culprit: String,
@@ -408,7 +408,7 @@ pub struct CategoryMetadata {
 }
 
 /// Options for detecting exact frames in profiling data.
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Debug, Serialize, Clone, Default, PartialEq)]
 pub struct Event {
     pub debug_meta: DebugMeta,

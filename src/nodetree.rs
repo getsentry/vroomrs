@@ -262,7 +262,7 @@ impl Node {
     }
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CallTreeFunction {
     pub parent_fingerprint: Option<u32>,
