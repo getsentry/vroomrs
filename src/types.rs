@@ -107,7 +107,7 @@ pub trait ChunkInterface {
     fn as_any(&self) -> &dyn Any;
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct Transaction {
     #[pyo3(get)]
@@ -167,7 +167,7 @@ pub struct TransactionMetadata {
     pub segment_id: Option<String>,
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Metadata {
     #[pyo3(get)]
@@ -227,6 +227,8 @@ pub trait ProfileInterface {
     fn sdk_version(&self) -> Option<&str>;
     fn duration_ns(&self) -> u64;
     fn get_transaction(&self) -> Cow<'_, Transaction>;
+    /// Returns the thread ID of the main thread, if it can be determined.
+    fn get_main_thread_id(&self) -> Option<u64>;
     fn get_transaction_tags(&self) -> &HashMap<String, String>;
     fn get_debug_meta(&self) -> &DebugMeta;
     fn get_measurements(&self) -> Option<&HashMap<String, Measurement>>;

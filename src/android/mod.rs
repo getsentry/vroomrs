@@ -528,7 +528,7 @@ impl Android {
                 i -= 1;
             }
         }
-        for (_, trees) in trees_by_thread_id.iter() {
+        for trees in trees_by_thread_id.values() {
             for root in trees {
                 root.borrow_mut().close(max_timestamp_ns);
             }
