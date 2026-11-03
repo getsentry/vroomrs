@@ -18,16 +18,21 @@ const MAX_STACK_DEPTH: u64 = 128;
 
 /// Returns a `ProfileChunk` instance from a json string
 ///
+/// .. deprecated::
+///     The platform alone cannot distinguish the legacy android trace format
+///     from sample v2. Use :func:`profile_chunk_from_json_str_and_version`
+///     instead whenever the profile version is known.
+///
 /// Arguments
 /// ---------
 /// profile : str
 ///   A profile serialized as json string
-///
-///     platform (string): An optional string representing the profile platform.
-///         If provided, we can directly deserialize to the right profile chunk
-///         more efficiently.
-///         If the platform is known at the time this function is invoked, it's
-///         recommended to always pass it.
+/// platform : Optional[str]
+///   An optional string representing the profile platform.
+///   If provided, we can directly deserialize to the right profile chunk
+///   more efficiently.
+///   If the platform is known at the time this function is invoked, it's
+///   recommended to always pass it.
 ///
 /// Returns
 /// -------
@@ -41,6 +46,7 @@ const MAX_STACK_DEPTH: u64 = 128;
 ///
 #[pyfunction]
 #[pyo3(signature = (profile, platform=None))]
+#[allow(deprecated)]
 fn profile_chunk_from_json_str(profile: &str, platform: Option<&str>) -> PyResult<ProfileChunk> {
     match platform {
         Some(platform) => ProfileChunk::from_json_vec_and_platform(profile.as_bytes(), platform)
@@ -50,18 +56,47 @@ fn profile_chunk_from_json_str(profile: &str, platform: Option<&str>) -> PyResul
     }
 }
 
+/// Returns a `ProfileChunk` instance from a json string, using the profile
+/// version to select the right format.
+///
+/// Arguments
+/// ---------
+/// profile : str
+///   A profile serialized as json string
+/// version : str
+///   A string representing the profile version. It is used to directly
+///   deserialize to the right profile chunk more efficiently ("2.android-trace"
+///   and, as a fallback to the legacy behavior, an empty string map to the
+///   legacy android trace format, any other version to the sample v2 format).
+///
+/// Returns
+/// -------
+/// :class:`vroomrs.ProfileChunk`
+///   A `ProfileChunk` instance
+///
+/// Raises
+/// -------
+/// pyo3.exceptions.PyException
+///     If an error occurs during the extraction process.
+///
+#[pyfunction]
+fn profile_chunk_from_json_str_and_version(profile: &str, version: &str) -> PyResult<ProfileChunk> {
+    ProfileChunk::from_json_vec_and_version(profile.as_bytes(), version)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e.to_string()))
+}
+
 /// Returns a `Profile` instance from a json string
 ///
 /// Arguments
 /// ---------
 /// profile : str
 ///   A profile serialized as json string
-///
-///     platform (string): An optional string representing the profile platform.
-///         If provided, we can directly deserialize to the right profile more
-///         efficiently.
-///         If the platform is known at the time this function is invoked, it's
-///         recommended to always pass it.
+/// platform : Optional[str]
+///   An optional string representing the profile platform.
+///   If provided, we can directly deserialize to the right profile more
+///   efficiently.
+///   If the platform is known at the time this function is invoked, it's
+///   recommended to always pass it.
 ///
 /// Returns
 /// -------
@@ -147,6 +182,10 @@ fn vroomrs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ProfileChunk>()?;
     m.add_class::<CallTreeFunction>()?;
     m.add_function(wrap_pyfunction!(profile_chunk_from_json_str, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        profile_chunk_from_json_str_and_version,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(decompress_profile_chunk, m)?)?;
     m.add_function(wrap_pyfunction!(profile_from_json_str, m)?)?;
     m.add_function(wrap_pyfunction!(decompress_profile, m)?)?;

@@ -35,10 +35,22 @@ pub(crate) const VIEW_RENDER: &str = "view_render";
 pub(crate) const VIEW_UPDATE: &str = "view_update";
 pub(crate) const XPC: &str = "xpc";
 
+/// Selects which threads frame detection runs over.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DetectionThread {
+    /// Only consider the profile's active thread.
+    ActiveThread,
+    /// Only consider the profile's main thread.
+    MainThread,
+    /// Consider all threads.
+    #[default]
+    AllThreads,
+}
+
 /// Trait for frame detection options with configurable behavior.
 pub trait DetectFrameOptions {
-    /// Returns whether to only check the active thread.
-    fn only_check_active_thread(&self) -> bool;
+    /// Returns which threads frame detection should run over.
+    fn detection_thread(&self) -> DetectionThread;
 
     /// Checks a node and returns information about it if it matches detection criteria.
     /// Returns None if the node doesn't match the criteria.
@@ -48,8 +60,8 @@ pub trait DetectFrameOptions {
 /// Options for detecting exact frames in profiling data.
 #[derive(Debug, Clone, Default)]
 pub struct DetectExactFrameOptions {
-    /// Whether to only consider the active thread
-    pub active_thread_only: bool,
+    /// Which threads to consider for detection
+    pub detection_thread: DetectionThread,
 
     /// Minimum duration threshold for frame detection
     pub duration_threshold: Duration,
@@ -65,8 +77,8 @@ pub struct DetectExactFrameOptions {
 /// Options for detecting Android frames in profiling data.
 #[derive(Debug, Clone)]
 pub struct DetectAndroidFrameOptions {
-    /// Whether to only consider the active thread
-    pub active_thread_only: bool,
+    /// Which threads to consider for detection
+    pub detection_thread: DetectionThread,
 
     /// Minimum duration threshold for frame detection
     pub duration_threshold: Duration,
@@ -103,8 +115,8 @@ pub struct NodeInfo {
 }
 
 impl DetectFrameOptions for DetectExactFrameOptions {
-    fn only_check_active_thread(&self) -> bool {
-        self.active_thread_only
+    fn detection_thread(&self) -> DetectionThread {
+        self.detection_thread
     }
 
     fn check_node(&self, node: &Node) -> Option<NodeInfo> {
@@ -138,8 +150,8 @@ impl DetectFrameOptions for DetectExactFrameOptions {
 }
 
 impl DetectFrameOptions for DetectAndroidFrameOptions {
-    fn only_check_active_thread(&self) -> bool {
-        self.active_thread_only
+    fn detection_thread(&self) -> DetectionThread {
+        self.detection_thread
     }
 
     fn check_node(&self, node: &Node) -> Option<NodeInfo> {
@@ -189,7 +201,7 @@ pub static DETECT_FRAME_JOBS: Lazy<
         // Node.js platform
         ("node".to_string(), vec![
             Box::new(DetectExactFrameOptions {
-                active_thread_only: true,
+                detection_thread: DetectionThread::ActiveThread,
                 duration_threshold: Duration::from_millis(0),
                 sample_threshold: 1,
                 functions_by_package: HashMap::from([
@@ -240,7 +252,7 @@ pub static DETECT_FRAME_JOBS: Lazy<
                 ]),
             }) as Box<dyn DetectFrameOptions + Send + Sync>,
             Box::new(DetectExactFrameOptions {
-                active_thread_only: false,
+                detection_thread: DetectionThread::AllThreads,
                 duration_threshold: Duration::from_millis(100),
                 sample_threshold: 1,
                 functions_by_package: HashMap::from([
@@ -254,7 +266,7 @@ pub static DETECT_FRAME_JOBS: Lazy<
         // Cocoa platform
         ("cocoa".to_string(), vec![
             Box::new(DetectExactFrameOptions {
-                active_thread_only: true,
+                detection_thread: DetectionThread::MainThread,
                 duration_threshold: Duration::from_millis(16),
                 sample_threshold: 4,
                 functions_by_package: HashMap::from([
@@ -398,7 +410,7 @@ pub static DETECT_FRAME_JOBS: Lazy<
         // Android platform
         ("android".to_string(), vec![
             Box::new(DetectAndroidFrameOptions {
-                active_thread_only: true,
+                detection_thread: DetectionThread::ActiveThread,
                 duration_threshold: Duration::from_millis(40),
                 sample_threshold: 1,
                 functions_by_package: HashMap::from([
@@ -564,19 +576,31 @@ pub fn detect_frame(
     // List nodes matching criteria
     let mut nodes: HashMap<NodeKey, NodeInfo> = HashMap::new();
 
-    if options.only_check_active_thread() {
-        let active_thread_id = profile.get_transaction().active_thread_id;
-        if let Some(call_trees) = call_trees_per_thread_id.get(&active_thread_id) {
+    let detect_in_thread = |thread_id: u64, nodes: &mut HashMap<NodeKey, NodeInfo>| {
+        if let Some(call_trees) = call_trees_per_thread_id.get(&thread_id) {
             for root in call_trees {
-                detect_frame_in_call_tree(root, options, &mut nodes);
+                detect_frame_in_call_tree(root, options, nodes);
             }
-        } else {
-            return;
         }
-    } else {
-        for call_trees in call_trees_per_thread_id.values() {
-            for root in call_trees {
-                detect_frame_in_call_tree(root, options, &mut nodes);
+    };
+
+    match options.detection_thread() {
+        DetectionThread::ActiveThread => {
+            let thread_id = profile.get_transaction().active_thread_id;
+            detect_in_thread(thread_id, &mut nodes);
+        }
+        DetectionThread::MainThread => {
+            // Only consider the main thread; do not fall back to the active thread.
+            let Some(thread_id) = profile.get_main_thread_id() else {
+                return;
+            };
+            detect_in_thread(thread_id, &mut nodes);
+        }
+        DetectionThread::AllThreads => {
+            for call_trees in call_trees_per_thread_id.values() {
+                for root in call_trees {
+                    detect_frame_in_call_tree(root, options, &mut nodes);
+                }
             }
         }
     }
@@ -596,7 +620,7 @@ mod tests {
         nodetree::Node,
         occurrence::detect_frame::{
             detect_frame_in_call_tree, DetectAndroidFrameOptions, DetectExactFrameOptions,
-            DetectFrameOptions, NodeInfo, NodeKey, FILE_READ, IMAGE_DECODE,
+            DetectFrameOptions, DetectionThread, NodeInfo, NodeKey, FILE_READ, IMAGE_DECODE,
         },
     };
 
@@ -1447,7 +1471,7 @@ mod tests {
             TestStruct {
                 name: "Detect android frame".to_string(),
                 job: Box::new(DetectAndroidFrameOptions {
-                    active_thread_only: false,
+                    detection_thread: DetectionThread::AllThreads,
                     duration_threshold: Duration::from_millis(16),
                     sample_threshold: 1,
                     functions_by_package: HashMap::from([
@@ -1528,5 +1552,67 @@ mod tests {
 
             assert_eq!(nodes, test.want, "test '{}' failed", test.name);
         }
+    }
+
+    #[test]
+    fn test_detect_frame_main_thread_no_fallback() {
+        use crate::{
+            occurrence::detect_frame::detect_frame, sample::v1::SampleProfile, types::Transaction,
+        };
+
+        // A matching node living on the active thread (id 1). There is no main thread.
+        let matching_node = Rc::new(RefCell::new(Node {
+            duration_ns: 20_000_000,
+            sample_count: 4,
+            name: "func".to_string(),
+            package: "pkg".to_string(),
+            ..Default::default()
+        }));
+        let call_trees: crate::types::CallTreesU64 = HashMap::from([(1u64, vec![matching_node])]);
+
+        let options = DetectExactFrameOptions {
+            detection_thread: DetectionThread::MainThread,
+            duration_threshold: Duration::from_millis(16),
+            sample_threshold: 1,
+            functions_by_package: HashMap::from([("pkg", HashMap::from([("func", FILE_READ)]))]),
+        };
+
+        // Cocoa profile whose active thread (id 1) has the matching node but which has
+        // no resolvable main thread.
+        let profile = SampleProfile {
+            platform: "cocoa".to_string(),
+            transaction: Transaction {
+                active_thread_id: 1,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        // MainThread detection must not fall back to the active thread, so no
+        // occurrences should be produced.
+        let mut occurrences = Vec::new();
+        detect_frame(&profile, &call_trees, &options, &mut occurrences);
+        assert!(
+            occurrences.is_empty(),
+            "MainThread detection should not fall back to the active thread"
+        );
+
+        // Sanity check: the node is matchable, so ActiveThread detection finds it.
+        let active_options = DetectExactFrameOptions {
+            detection_thread: DetectionThread::ActiveThread,
+            ..options
+        };
+        let mut active_occurrences = Vec::new();
+        detect_frame(
+            &profile,
+            &call_trees,
+            &active_options,
+            &mut active_occurrences,
+        );
+        assert_eq!(
+            active_occurrences.len(),
+            1,
+            "ActiveThread detection should find the matching node"
+        );
     }
 }

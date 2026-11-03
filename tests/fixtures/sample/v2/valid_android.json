@@ -1,0 +1,87 @@
+{
+    "version": "2",
+    "chunk_id": "1f4ab0a4c25f4697bf9f0a2fcbe6a815",
+    "profiler_id": "3e229f1d3807421ba62a5f8bc295d837",
+    "timestamp": 1710805688.237,
+    "received": 1710805688.237,
+    "release": "io.sentry.samples.android@8.0.0+1",
+    "environment": "debug",
+    "organization_id": 1,
+    "project_id": 1,
+    "platform": "android",
+    "client_sdk": {
+      "name": "sentry.java.android",
+      "version": "8.0.0"
+    },
+    "retention_days": 90,
+    "profile": {
+      "samples": [
+        {
+          "timestamp": 1710805688.1179368,
+          "thread_id": "1",
+          "stack_id": 0
+        },
+        {
+          "timestamp": 1710805688.1274858,
+          "thread_id": "1",
+          "stack_id": 1
+        },
+        {
+          "timestamp": 1710805688.1379368,
+          "thread_id": "1",
+          "stack_id": 1
+        },
+        {
+          "timestamp": 1710805688.1179368,
+          "thread_id": "2",
+          "stack_id": 2
+        },
+        {
+          "timestamp": 1710805688.1379368,
+          "thread_id": "2",
+          "stack_id": 2
+        }
+      ],
+      "stacks": [
+        [1, 0],
+        [2, 1, 0],
+        [3]
+      ],
+      "frames": [
+        {
+          "function": "main",
+          "module": "android.app.ActivityThread",
+          "in_app": false
+        },
+        {
+          "function": "onCreate",
+          "module": "io.sentry.samples.android.MainActivity",
+          "lineno": 42,
+          "in_app": true
+        },
+        {
+          "function": "fibonacci",
+          "module": "io.sentry.samples.android.MainActivity",
+          "lineno": 60,
+          "in_app": true
+        },
+        {
+          "function": "__start_thread",
+          "package": "/apex/com.android.runtime/lib64/bionic/libc.so",
+          "instruction_addr": "0x7f9281a000",
+          "platform": "native",
+          "in_app": false
+        }
+      ],
+      "thread_metadata": {
+        "1": {
+          "name": "main",
+          "priority": 5
+        },
+        "2": {
+          "name": "sentry.io-thread",
+          "priority": 10
+        }
+      }
+    }
+}
