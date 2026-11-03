@@ -1,6 +1,9 @@
 name: Changelog Preview
 on:
-  pull_request:
+  # pull_request_target so the preview can comment on PRs from forks. The
+  # reusable workflow only reads git metadata and .craft.yml and never runs
+  # code from the PR.
+  pull_request_target:
     types:
     - opened
     - synchronize
@@ -9,10 +12,11 @@ on:
     - labeled
     - unlabeled
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
+  statuses: write
 
 jobs:
   changelog-preview:
-    uses: getsentry/craft/.github/workflows/changelog-preview.yml@v2
+    uses: getsentry/craft/.github/workflows/changelog-preview.yml@0ff75896d43285ca376c7254e8143bac23acd429 # v2
     secrets: inherit
