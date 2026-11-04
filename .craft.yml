@@ -1,9 +1,10 @@
 
-minVersion: 2.18.0
+minVersion: 3.9.0
 github:
   owner: getsentry
   repo: vroomrs
-changelogPolicy: none
+changelog:
+  policy: none
 
 statusProvider:
   name: github
